@@ -1,0 +1,7 @@
+# testing
+test*
+
+# Output
+*.out
+
+.ipynb_checkpoints/
