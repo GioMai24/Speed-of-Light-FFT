@@ -1,14 +1,11 @@
 #include <iostream>
 #include <fstream>  // file handler
+#include <string>
 #include <cmath>
 #include <complex>
-#include <numbers>  // requires -std=c++20
+#include <numbers>
 #include <ctime>
 #include "utils.h"
-
-/**
- * std::numbers::pi is a double by default. To avoid casting I set everything to double.
- */
 
 const std::complex<double> i(0,1);
 
@@ -30,45 +27,56 @@ double CosCos(const double x, const double y, const double fx, const double fy){
  */
 template<typename T>
 void coolVec(T *x, std::complex<double> *res, int N){
-    int N2 = N/2;
-    /*
-    // computation for k=0. test if the if clause makes it faster...
-    double sum = 0;
-    for(int m=0; m<N; m++){
-        sum += x[m];
-    }
-    std::cout << sum << std::endl;
-    */
-    for(int k=0; k<N2; k++){
-        std::complex<double> E(0,0);
-        std::complex<double> O(0,0);
-        for(int m=0; m<N2; m++){
-            std::complex<double> twiddle = exp(-(4 * std::numbers::pi * m * k / N) * i);
-            E += x[2*m] * twiddle;
-            O += x[2*m+1] * twiddle;
+    int lN = log2(N);
+    std::complex<double> common = - 2 * std::numbers::pi * i;  // might have sign problem...
+    for(int s=1; s<log2(N)+1; s++){
+        int m = 1 << s;
+        std::complex<double> wm = exp(common / (double) m);
+        for(int k=0; k<N; k+=m){
+            std::complex<double> w = 1;
+            for(int j=0; j<m/2; j++){
+                std::complex<double> t = w * res[k+j+m/2];
+                std::complex<double> u = res[k+j];
+                res[k+j] = u + t;
+                res[k+j+m/2] = u - t;
+                w *= wm;
+            }
         }
-        std::complex<double> expO = exp(-(2 * std::numbers::pi * k / N) * i);
-        res[k] = E + expO * O;
-        res[k+N2] = E - expO * O;
+
     }
 }
 
-
 int main(){
-    // frequencies
+    /*
+    srand(time(NULL));
+    const int rows = 4;
+    const int cols = 5;
+    std::complex<double> arr[20];
+    for(int i=0; i<rows; i++){
+        for(int j=0; j<cols; j++){
+            int xh = rand() % 20;
+            std::cout << xh << '\n';
+            std::complex<double> ttt(xh, 1.3);
+            std::cout << ttt << '\n';
+            arr[i*cols + j] = ttt;
+        }
+    }
+    printArray(arr, rows, cols);
+*/
+// frequencies
 	const double fx = 0.3;
 	const double fy = 0.6;
 
 	// points
-	double xMin = 0, xMax = 15;
-	double yMin = 0, yMax = 15;
+	double xMin = 0, xMax = 16;
+	double yMin = 0, yMax = 16;
 //	 would be nice to throw an error if min > max
 
 	// grid
-	const int rows = 512;
-	const int cols = 512;
-	double grid[rows * cols];
-	double xStep = (xMax - xMin) / (double) cols;  // these lines are useless?
+	const int rows = 1024;
+	const int cols = 1024;
+	double *grid = new double[rows * cols]; // using doubles must use heap, not stack for large arrays.
+	double xStep = (xMax - xMin) / (double) cols;
 	double yStep = (yMax - yMin) / (double) rows;
 
 	double xTemp;
@@ -80,28 +88,52 @@ int main(){
 		}
 		yMin += yStep;
 	}
+
+
 	centerSpectrum(grid, rows, cols);
 
     // fft rows
-    std::complex<double> fft[rows * cols];
+    std::complex<double> *fft = new std::complex<double>[rows * cols];
+
+    int lCols = log2(cols);
+    int revCol[cols];
+    for(int j=0; j<cols; j++){
+        revCol[j] = revBitOrd(j, lCols);
+    }
+
     for(int i=0; i<rows; i++){
+        for(int j=0; j<cols; j++){
+            fft[i*cols + revCol[j]] = grid[i*cols + j];
+        }
         coolVec(&grid[i * cols], &fft[i * cols], cols);
     }
+
+    // back to original
     centerSpectrum(grid, rows, cols);
 
 
     // transpose
-    std::complex<double> fftT[rows*cols];
+    std::complex<double> *fftT = new std::complex<double>[rows*cols];
     transpose(fft, fftT, rows, cols);
+
     // fft cols
+    int lRows = log2(rows);
+    int revRow[rows];
+    for(int i=0; i<rows; i++){
+        revRow[i] = revBitOrd(i, lRows);
+    }
+
     for(int j=0; j<cols; j++){
+        for(int i=0; i<rows; i++){
+            fft[j*rows + revRow[i]] = fftT[j*rows + i];
+        }
         coolVec(&fftT[j * rows], &fft[j * rows], rows);  // overwrites old fft
     }
     transpose(fft, fftT, cols, rows);  // overwrites old fftT, now fftT is the DFT of the original dim
 //    printArray(fftT, rows, cols);
 
     // spectrum
-    double specter[rows*cols];
+    double *specter = new double[rows*cols];
     spectrum(fftT, specter, rows, cols);
     logSpectrum(specter, rows, cols, 1.);
 
@@ -133,5 +165,24 @@ int main(){
 		saveFft << '\n';
 	}
 	saveFft.close();
+
+	delete[] grid;
+	delete[] fft;
+	delete[] fftT;
+	delete[] specter;
     return 0;
 }
+/*
+for(int k=0; k<N2; k++){
+        std::complex<double> E(0,0);
+        std::complex<double> O(0,0);
+        for(int m=0; m<N2; m++){
+            std::complex<double> twiddle = exp(-(4 * std::numbers::pi * m * k / N) * i);
+            E += x[2*m] * twiddle;
+            O += x[2*m+1] * twiddle;
+        }
+        std::complex<double> expO = exp(-(2 * std::numbers::pi * k / N) * i);
+        res[k] = E + expO * O;
+        res[k+N2] = E - expO * O;
+    }
+*/

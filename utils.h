@@ -20,6 +20,21 @@ void transpose(T *src, T *dst, const int rows, const int cols) {
     }
 }
 
+/**
+ * Modify index order based on bit representation reversal.
+ *
+ * Example: x=3 -> 011 -> 110 -> 6
+ */
+int revBitOrd(int x, int lN){
+    int n = 0;
+    for(int i=0; i<lN; i++){
+        n <<= 1;
+        n |= (x & 1);
+        x >>= 1;
+    }
+    return n;
+}
+
 
 /**
  * To be applied to the image before DFT.
