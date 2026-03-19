@@ -4,4 +4,6 @@ test*
 # Output
 *.out
 
+# Python
 .ipynb_checkpoints/
+__pycache__/

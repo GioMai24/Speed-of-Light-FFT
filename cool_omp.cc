@@ -6,6 +6,7 @@
 #include <numbers>
 #include <ctime>
 #include "utils.h"
+#include <omp.h>
 
 const std::complex<double> i(0,1);
 
@@ -64,6 +65,7 @@ int main(){
     printArray(arr, rows, cols);
 */
 
+    omp_set_num_threads(8);
 // frequencies
 	const double fx = 0.3;
 	const double fy = 0.6;
@@ -102,6 +104,7 @@ int main(){
         revCol[j] = revBitOrd(j, lCols);
     }
 
+    #pragma omp parallel for
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             fft[i*cols + revCol[j]] = grid[i*cols + j];
@@ -124,6 +127,7 @@ int main(){
         revRow[i] = revBitOrd(i, lRows);
     }
 
+    #pragma omp parallel for
     for(int j=0; j<cols; j++){
         for(int i=0; i<rows; i++){
             fft[j*rows + revRow[i]] = fftT[j*rows + i];
