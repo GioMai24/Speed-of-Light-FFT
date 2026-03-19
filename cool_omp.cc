@@ -104,6 +104,7 @@ int main(){
         revCol[j] = revBitOrd(j, lCols);
     }
 
+    clock_t start = clock();
     #pragma omp parallel for
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
@@ -111,6 +112,8 @@ int main(){
         }
         coolVec(&grid[i * cols], &fft[i * cols], cols);
     }
+    clock_t stop = clock();
+    std::cout << (stop - start) << std::endl;
 
     // back to original
     centerSpectrum(grid, rows, cols);
@@ -127,6 +130,7 @@ int main(){
         revRow[i] = revBitOrd(i, lRows);
     }
 
+    stop = clock();
     #pragma omp parallel for
     for(int j=0; j<cols; j++){
         for(int i=0; i<rows; i++){
@@ -134,6 +138,9 @@ int main(){
         }
         coolVec(&fftT[j * rows], &fft[j * rows], rows);  // overwrites old fft
     }
+    stop = clock();
+    std::cout << (stop - start) << std::endl;
+
     transpose(fft, fftT, cols, rows);  // overwrites old fftT, now fftT is the DFT of the original dim
 //    printArray(fftT, rows, cols);
 
