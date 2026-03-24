@@ -4,7 +4,7 @@
 #include <cmath>
 #include <complex>
 #include <numbers>
-#include <ctime>
+#include <chrono>
 #include "utils.h"
 
 const std::complex<float> i(0,1);
@@ -22,12 +22,10 @@ float CosCos(const float x, const float y, const float fx, const float fy){
 /**
  * DFT using radix-2 Cooley-Tukey algorithm.
  *
- * @param *x Input 1D array to transform.
  * @param *res Output 1D array to store results.
- * @param N Size of both x and res.
+ * @param N Size of res.
  */
-template<typename T>
-void coolVec(T *x, std::complex<float> *res, int N){
+void coolVec(std::complex<float> *res, int N){
     int lN = log2(N);
     std::complex<float> common = - 2 * pi * i;  // might have sign problem...
     for(int s=1; s<log2(N)+1; s++){
@@ -48,14 +46,14 @@ void coolVec(T *x, std::complex<float> *res, int N){
 }
 
 int main(){
+    using namespace std::chrono;
     // frequencies
 	const float fx = 0.3;
-	const float fy = 0.6;
+	const float fy = 0.8;
 
 	// points
 	float xMin = 0, xMax = 16;
 	float yMin = 0, yMax = 16;
-//	 would be nice to throw an error if min > max
 
 	// grid
 	const int rows = 2048;
@@ -86,22 +84,24 @@ int main(){
         revCol[j] = revBitOrd(j, lCols);
     }
 
-//    clock_t start = clock();
+    steady_clock::time_point start = steady_clock::now();
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             fft[i*cols + revCol[j]] = grid[i*cols + j];
         }
-        coolVec(&grid[i * cols], &fft[i * cols], cols);
+        coolVec(&fft[i * cols], cols);
     }
-//    clock_t stop = clock();
-//    std::cout << (stop - start) << std::endl;
+    steady_clock::time_point stop = steady_clock::now();
+    duration<double> time_span = duration_cast<duration<double>>(stop - start);
+    std::cout << time_span.count() << std::endl;
+
     // back to original grid is not used if not for saving
     centerSpectrum(grid, rows, cols);
 
 
-    // transpose
-    std::complex<float> *fftT = new std::complex<float>[rows*cols];
-    transpose(fft, fftT, rows, cols);
+    // cols (may use grid, if we save it now...)
+    std::complex<float> *fft2 = new std::complex<float>[rows*cols];
+//    transpose(fft, fftT, rows, cols);
 
     // fft cols
     int lRows = log2(rows);
@@ -110,56 +110,57 @@ int main(){
         revRow[i] = revBitOrd(i, lRows);
     }
 
-//    start = clock();
+    start = steady_clock::now();
     for(int j=0; j<cols; j++){
         for(int i=0; i<rows; i++){
-            fft[j*rows + revRow[i]] = fftT[j*rows + i];
+            fft2[j*rows+ revRow[i]] = fft[i*cols+j];
         }
-        coolVec(&fftT[j * rows], &fft[j * rows], rows);  // overwrites old fft
+        coolVec(&fft2[j * rows], rows);
     }
-//    stop = clock();
-//    std::cout << (stop - start) << std::endl;
+    stop = steady_clock::now();
+    time_span = duration_cast<duration<double>>(stop - start);
+    std::cout << time_span.count() << std::endl;
 
-    transpose(fft, fftT, cols, rows);  // overwrites old fftT, now fftT is the DFT of the original dim
-//    printArray(fftT, rows, cols);
+//    for(int j=0; j<cols; j++){
+//        for(int i=0; i<rows; i++){
+//            fft[j*rows + revRow[i]] = fftT[j*rows + i];
+//        }
+//        coolVec(&fft[j * rows], rows);  // overwrites old fft
+//    }
+
+    transpose(fft2, fft, cols, rows);  // overwrites old fftT, now fftT is the DFT of the original dim
 
     // spectrum
     float *specter = new float[rows*cols];
-    spectrum(fftT, specter, rows, cols);
+    spectrum(fft, specter, rows, cols);
     logSpectrum(specter, rows, cols, 1.f);
 
 
 
-//    clock_t start = clock();
-//    coolVec(x, res, cols);
-//    clock_t stop = clock();
-//    std::cout << (float)(stop - start) / CLOCKS_PER_SEC << std::endl;
-//
-//    std::ofstream saveGrid;
-//	saveGrid.open("grid.csv");
+//    std::ofstream save;
+//	save.open("grid2.csv");
 //	for(int i=0; i<rows; i++){
 //		for(int j=0; j<cols; j++){
-//			saveGrid << grid[i * cols + j];
-//			if(j != cols - 1){saveGrid << ", ";}
+//			save << grid[i * cols + j];
+//			if(j != cols - 1){save << ", ";}
 //		}
-//		saveGrid << '\n';
+//		save << '\n';
 //	}
-//	saveGrid.close();
+//	save.close();
 //
-//	std::ofstream saveFft;
-//	saveFft.open("fft.csv");
+//	save.open("fft2.csv");
 //	for(int i=0; i<rows; i++){
 //		for(int j=0; j<cols; j++){
-//			saveFft << specter[i * cols + j];
-//			if(j != cols - 1){saveFft << ", ";}
+//			save << specter[i * cols + j];
+//			if(j != cols - 1){save << ", ";}
 //		}
-//		saveFft << '\n';
+//		save << '\n';
 //	}
-//	saveFft.close();
+//	save.close();
 
 	delete[] grid;
 	delete[] fft;
-	delete[] fftT;
+	delete[] fft2;
 	delete[] specter;
     return 0;
 }

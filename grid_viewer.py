@@ -12,8 +12,8 @@ def displayImage(image):
 
 
 if __name__ == "__main__":
-    displayImage("data.csv")
+    displayImage("grid2.csv")
     plt.show()
 
-    displayImage("fft.csv")
+    displayImage("fft2.csv")
     plt.show()

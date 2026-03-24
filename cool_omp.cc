@@ -1,7 +1,7 @@
 #include <iostream>
 #include <fstream>  // file handler
 #include <string>
-#include <cmath>
+#include <chrono>
 #include <complex>
 #include <numbers>
 #include <ctime>
@@ -9,13 +9,16 @@
 #include <omp.h>
 
 const std::complex<double> i(0,1);
+const int nThreads = std::atoi(getenv("OMP_NUM_THREADS"));  // NOT SAFE IF FORGET TO DEFINE THE ENV
+const double pi = std::numbers::pi;
+
 
 
 /**
  * The function
  */
 double CosCos(const double x, const double y, const double fx, const double fy){
-	return cos(2 * std::numbers::pi * fx * x) * cos(2 * std::numbers::pi * fy * y);
+	return cos(2 * pi * fx * x) * cos(2 * pi * fy * y);
 }
 
 
@@ -26,10 +29,9 @@ double CosCos(const double x, const double y, const double fx, const double fy){
  * @param *res Output 1D array to store results.
  * @param N Size of both x and res.
  */
-template<typename T>
-void coolVec(T *x, std::complex<double> *res, int N){
+void coolVec(std::complex<double> *res, int N){
     int lN = log2(N);
-    std::complex<double> common = - 2 * std::numbers::pi * i;  // might have sign problem...
+    std::complex<double> common = - 2 * pi * i;  // might have sign problem...
     for(int s=1; s<log2(N)+1; s++){
         int m = 1 << s;
         std::complex<double> wm = exp(common / (double) m);
@@ -48,24 +50,8 @@ void coolVec(T *x, std::complex<double> *res, int N){
 }
 
 int main(){
-    /*
-    srand(time(NULL));
-    const int rows = 4;
-    const int cols = 5;
-    std::complex<double> arr[20];
-    for(int i=0; i<rows; i++){
-        for(int j=0; j<cols; j++){
-            int xh = rand() % 20;
-            std::cout << xh << '\n';
-            std::complex<double> ttt(xh, 1.3);
-            std::cout << ttt << '\n';
-            arr[i*cols + j] = ttt;
-        }
-    }
-    printArray(arr, rows, cols);
-*/
+    using namespace std::chrono;
 
-    omp_set_num_threads(8);
 // frequencies
 	const double fx = 0.3;
 	const double fy = 0.6;
@@ -104,16 +90,17 @@ int main(){
         revCol[j] = revBitOrd(j, lCols);
     }
 
-    clock_t start = clock();
+    steady_clock::time_point start = steady_clock::now();
     #pragma omp parallel for
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             fft[i*cols + revCol[j]] = grid[i*cols + j];
         }
-        coolVec(&grid[i * cols], &fft[i * cols], cols);
+        coolVec(&fft[i * cols], cols);
     }
-    clock_t stop = clock();
-    std::cout << (stop - start) << std::endl;
+    steady_clock::time_point stop = steady_clock::now();
+    duration<double> time_span = duration_cast<duration<double>>(stop - start);
+    std::cout << time_span.count() << std::endl;
 
     // back to original
     centerSpectrum(grid, rows, cols);
@@ -130,16 +117,17 @@ int main(){
         revRow[i] = revBitOrd(i, lRows);
     }
 
-    stop = clock();
+    start = steady_clock::now();
     #pragma omp parallel for
     for(int j=0; j<cols; j++){
         for(int i=0; i<rows; i++){
             fft[j*rows + revRow[i]] = fftT[j*rows + i];
         }
-        coolVec(&fftT[j * rows], &fft[j * rows], rows);  // overwrites old fft
+        coolVec(&fft[j * rows], rows);  // overwrites old fft
     }
-    stop = clock();
-    std::cout << (stop - start) << std::endl;
+    stop = steady_clock::now();
+    time_span = duration_cast<duration<double>>(stop - start);
+    std::cout << time_span.count() << std::endl;
 
     transpose(fft, fftT, cols, rows);  // overwrites old fftT, now fftT is the DFT of the original dim
 //    printArray(fftT, rows, cols);
@@ -189,11 +177,11 @@ for(int k=0; k<N2; k++){
         std::complex<double> E(0,0);
         std::complex<double> O(0,0);
         for(int m=0; m<N2; m++){
-            std::complex<double> twiddle = exp(-(4 * std::numbers::pi * m * k / N) * i);
+            std::complex<double> twiddle = exp(-(4 * pi * m * k / N) * i);
             E += x[2*m] * twiddle;
             O += x[2*m+1] * twiddle;
         }
-        std::complex<double> expO = exp(-(2 * std::numbers::pi * k / N) * i);
+        std::complex<double> expO = exp(-(2 * pi * k / N) * i);
         res[k] = E + expO * O;
         res[k+N2] = E - expO * O;
     }
