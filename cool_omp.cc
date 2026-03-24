@@ -57,13 +57,13 @@ int main(){
 	const double fy = 0.6;
 
 	// points
-	double xMin = 0, xMax = 16;
-	double yMin = 0, yMax = 16;
+	double xMin = 0, xMax = 2048;
+	double yMin = 0, yMax = 2048;
 //	 would be nice to throw an error if min > max
 
 	// grid
-	const int rows = 2048;
-	const int cols = 2048;
+	const int rows = 8192;
+	const int cols = 8192;
 	double *grid = new double[rows * cols]; // using doubles must use heap, not stack for large arrays.
 	double xStep = (xMax - xMin) / (double) cols;
 	double yStep = (yMax - yMin) / (double) rows;

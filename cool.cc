@@ -52,12 +52,12 @@ int main(){
 	const float fy = 0.8;
 
 	// points
-	float xMin = 0, xMax = 16;
-	float yMin = 0, yMax = 16;
+	float xMin = 0, xMax = 2048;
+	float yMin = 0, yMax = 2048;
 
 	// grid
-	const int rows = 2048;
-	const int cols = 2048;
+	const int rows = 8192;
+	const int cols = 8192;
 	float *grid = new float[rows * cols]; // using floats must use heap, not stack for large arrays.
 	float xStep = (xMax - xMin) / (float) cols;
 	float yStep = (yMax - yMin) / (float) rows;
