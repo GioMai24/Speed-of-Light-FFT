@@ -8,16 +8,16 @@
 #include "utils.h"
 #include <omp.h>
 
-const std::complex<double> i(0,1);
+const std::complex<float> i(0,1);
 const int nThreads = std::atoi(getenv("OMP_NUM_THREADS"));  // NOT SAFE IF FORGET TO DEFINE THE ENV
-const double pi = std::numbers::pi;
+const float pi = std::numbers::pi;
 
 
 
 /**
  * The function
  */
-double CosCos(const double x, const double y, const double fx, const double fy){
+float CosCos(const float x, const float y, const float fx, const float fy){
 	return cos(2 * pi * fx * x) * cos(2 * pi * fy * y);
 }
 
@@ -29,17 +29,17 @@ double CosCos(const double x, const double y, const double fx, const double fy){
  * @param *res Output 1D array to store results.
  * @param N Size of both x and res.
  */
-void coolVec(std::complex<double> *res, int N){
+void coolVec(std::complex<float> *res, int N){
     int lN = log2(N);
-    std::complex<double> common = - 2 * pi * i;  // might have sign problem...
+    std::complex<float> common = - 2 * pi * i;  // might have sign problem...
     for(int s=1; s<log2(N)+1; s++){
         int m = 1 << s;
-        std::complex<double> wm = exp(common / (double) m);
+        std::complex<float> wm = exp(common / (float) m);
         for(int k=0; k<N; k+=m){
-            std::complex<double> w = 1;
+            std::complex<float> w = 1;
             for(int j=0; j<m/2; j++){
-                std::complex<double> t = w * res[k+j+m/2];
-                std::complex<double> u = res[k+j];
+                std::complex<float> t = w * res[k+j+m/2];
+                std::complex<float> u = res[k+j];
                 res[k+j] = u + t;
                 res[k+j+m/2] = u - t;
                 w *= wm;
@@ -53,22 +53,22 @@ int main(){
     using namespace std::chrono;
 
 // frequencies
-	const double fx = 0.3;
-	const double fy = 0.6;
+	const float fx = 0.3;
+	const float fy = 0.8;
 
 	// points
-	double xMin = 0, xMax = 2048;
-	double yMin = 0, yMax = 2048;
+	float xMin = 0, xMax = 512;
+	float yMin = 0, yMax = 512;
 //	 would be nice to throw an error if min > max
 
 	// grid
-	const int rows = 8192;
-	const int cols = 8192;
-	double *grid = new double[rows * cols]; // using doubles must use heap, not stack for large arrays.
-	double xStep = (xMax - xMin) / (double) cols;
-	double yStep = (yMax - yMin) / (double) rows;
+	const int rows = 2048;
+	const int cols = 2048;
+	float *grid = new float[rows * cols]; // using doubles must use heap, not stack for large arrays.
+	float xStep = (xMax - xMin) / (float) cols;
+	float yStep = (yMax - yMin) / (float) rows;
 
-	double xTemp;
+	float xTemp;
 	for(int i=0; i<rows; i++){
 		xTemp = xMin;
 		for(int j=0; j<cols; j++){
@@ -82,7 +82,7 @@ int main(){
 	centerSpectrum(grid, rows, cols);
 
     // fft rows
-    std::complex<double> *fft = new std::complex<double>[rows * cols];
+    std::complex<float> *fft = new std::complex<float>[rows * cols];
 
     int lCols = log2(cols);
     int revCol[cols];
@@ -99,7 +99,7 @@ int main(){
         coolVec(&fft[i * cols], cols);
     }
     steady_clock::time_point stop = steady_clock::now();
-    duration<double> time_span = duration_cast<duration<double>>(stop - start);
+    duration<float> time_span = duration_cast<duration<float>>(stop - start);
     std::cout << time_span.count() << std::endl;
 
     // back to original
@@ -107,7 +107,7 @@ int main(){
 
 
     // transpose
-    std::complex<double> *fftT = new std::complex<double>[rows*cols];
+    std::complex<float> *fftT = new std::complex<float>[rows*cols];
     transpose(fft, fftT, rows, cols);
 
     // fft cols
@@ -126,45 +126,39 @@ int main(){
         coolVec(&fft[j * rows], rows);  // overwrites old fft
     }
     stop = steady_clock::now();
-    time_span = duration_cast<duration<double>>(stop - start);
+    time_span = duration_cast<duration<float>>(stop - start);
     std::cout << time_span.count() << std::endl;
 
     transpose(fft, fftT, cols, rows);  // overwrites old fftT, now fftT is the DFT of the original dim
-//    printArray(fftT, rows, cols);
 
     // spectrum
-    double *specter = new double[rows*cols];
+    float *specter = new float[rows*cols];
     spectrum(fftT, specter, rows, cols);
-    logSpectrum(specter, rows, cols, 1.);
+    logSpectrum(specter, rows, cols, 1.f);
 
 
 
-//    clock_t start = clock();
-//    coolVec(x, res, cols);
-//    clock_t stop = clock();
-//    std::cout << (double)(stop - start) / CLOCKS_PER_SEC << std::endl;
-//
-//    std::ofstream saveGrid;
-//	saveGrid.open("grid.csv");
+//    std::ofstream save;
+//	save.open("grid_open.csv");
 //	for(int i=0; i<rows; i++){
 //		for(int j=0; j<cols; j++){
-//			saveGrid << grid[i * cols + j];
-//			if(j != cols - 1){saveGrid << ", ";}
+//			save << grid[i * cols + j];
+//			if(j != cols - 1){save << ", ";}
 //		}
-//		saveGrid << '\n';
+//		save << '\n';
 //	}
-//	saveGrid.close();
+//	save.close();
 //
-//	std::ofstream saveFft;
-//	saveFft.open("fft.csv");
+//	save.open("fft_open.csv");
 //	for(int i=0; i<rows; i++){
 //		for(int j=0; j<cols; j++){
-//			saveFft << specter[i * cols + j];
-//			if(j != cols - 1){saveFft << ", ";}
+//			save << specter[i * cols + j];
+//			if(j != cols - 1){save << ", ";}
 //		}
-//		saveFft << '\n';
+//		save << '\n';
 //	}
-//	saveFft.close();
+//	save.close();
+
 
 	delete[] grid;
 	delete[] fft;
@@ -172,17 +166,4 @@ int main(){
 	delete[] specter;
     return 0;
 }
-/*
-for(int k=0; k<N2; k++){
-        std::complex<double> E(0,0);
-        std::complex<double> O(0,0);
-        for(int m=0; m<N2; m++){
-            std::complex<double> twiddle = exp(-(4 * pi * m * k / N) * i);
-            E += x[2*m] * twiddle;
-            O += x[2*m+1] * twiddle;
-        }
-        std::complex<double> expO = exp(-(2 * pi * k / N) * i);
-        res[k] = E + expO * O;
-        res[k+N2] = E - expO * O;
-    }
-*/
+

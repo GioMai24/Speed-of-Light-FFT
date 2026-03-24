@@ -56,8 +56,8 @@ int main(){
 	float yMin = 0, yMax = 512;
 
 	// grid
-	const int rows = 8192;
-	const int cols = 8192;
+	const int rows = 2048;
+	const int cols = 2048;
 	float *grid = new float[rows * cols]; // using floats must use heap, not stack for large arrays.
 	float xStep = (xMax - xMin) / (float) cols;
 	float yStep = (yMax - yMin) / (float) rows;
@@ -100,8 +100,8 @@ int main(){
 
 
     // cols (may use grid, if we save it now...)
-    std::complex<float> *fft2 = new std::complex<float>[rows*cols];
-//    transpose(fft, fftT, rows, cols);
+    std::complex<float> *fftT = new std::complex<float>[rows*cols];
+    transpose(fft, fftT, rows, cols);
 
     // fft cols
     int lRows = log2(rows);
@@ -113,32 +113,25 @@ int main(){
     start = steady_clock::now();
     for(int j=0; j<cols; j++){
         for(int i=0; i<rows; i++){
-            fft2[j*rows+ revRow[i]] = fft[i*cols+j];
+            fft[j*rows + revRow[i]] = fftT[j*rows + i];
         }
-        coolVec(&fft2[j * rows], rows);
+        coolVec(&fft[j * rows], rows);  // overwrites old fft
     }
     stop = steady_clock::now();
     time_span = duration_cast<duration<double>>(stop - start);
     std::cout << time_span.count() << std::endl;
 
-//    for(int j=0; j<cols; j++){
-//        for(int i=0; i<rows; i++){
-//            fft[j*rows + revRow[i]] = fftT[j*rows + i];
-//        }
-//        coolVec(&fft[j * rows], rows);  // overwrites old fft
-//    }
 
-    transpose(fft2, fft, cols, rows);  // overwrites old fftT, now fftT is the DFT of the original dim
+    transpose(fft, fftT, cols, rows);  // overwrites old fftT, now fftT is the DFT of the original dim
 
     // spectrum
     float *specter = new float[rows*cols];
-    spectrum(fft, specter, rows, cols);
+    spectrum(fftT, specter, rows, cols);
     logSpectrum(specter, rows, cols, 1.f);
 
 
-
 //    std::ofstream save;
-//	save.open("grid2.csv");
+//	save.open("gridT.csv");
 //	for(int i=0; i<rows; i++){
 //		for(int j=0; j<cols; j++){
 //			save << grid[i * cols + j];
@@ -148,7 +141,7 @@ int main(){
 //	}
 //	save.close();
 //
-//	save.open("fft2.csv");
+//	save.open("fftT.csv");
 //	for(int i=0; i<rows; i++){
 //		for(int j=0; j<cols; j++){
 //			save << specter[i * cols + j];
@@ -160,7 +153,7 @@ int main(){
 
 	delete[] grid;
 	delete[] fft;
-	delete[] fft2;
+	delete[] fftT;
 	delete[] specter;
     return 0;
 }
