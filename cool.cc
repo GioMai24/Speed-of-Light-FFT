@@ -56,8 +56,8 @@ int main(){
 	float yMin = 0, yMax = 512;
 
 	// grid
-	const int rows = 8192;
-	const int cols = 8192;
+	const int rows = 2048;
+	const int cols = 2048;
 	float *grid = new float[rows * cols]; // using floats must use heap, not stack for large arrays.
 	float xStep = (xMax - xMin) / (float) cols;
 	float yStep = (yMax - yMin) / (float) rows;
@@ -101,7 +101,6 @@ int main(){
 
     // cols (may use grid, if we save it now...)
     std::complex<float> *fft2 = new std::complex<float>[rows*cols];
-//    transpose(fft, fftT, rows, cols);
 
     // fft cols
     int lRows = log2(rows);
@@ -121,42 +120,36 @@ int main(){
     time_span = duration_cast<duration<double>>(stop - start);
     std::cout << time_span.count() << std::endl;
 
-//    for(int j=0; j<cols; j++){
-//        for(int i=0; i<rows; i++){
-//            fft[j*rows + revRow[i]] = fftT[j*rows + i];
-//        }
-//        coolVec(&fft[j * rows], rows);  // overwrites old fft
-//    }
+//    transpose(fft2, fft, cols, rows);  // overwrites old fftT, now fftT is the DFT of the original dim
 
-    transpose(fft2, fft, cols, rows);  // overwrites old fftT, now fftT is the DFT of the original dim
 
     // spectrum
     float *specter = new float[rows*cols];
-    spectrum(fft, specter, rows, cols);
-    logSpectrum(specter, rows, cols, 1.f);
+    spectrum(fft2, specter, cols, rows);
+    logSpectrum(specter, cols, rows, 1.f);
 
 
 
-//    std::ofstream save;
-//	save.open("grid2.csv");
-//	for(int i=0; i<rows; i++){
-//		for(int j=0; j<cols; j++){
-//			save << grid[i * cols + j];
-//			if(j != cols - 1){save << ", ";}
-//		}
-//		save << '\n';
-//	}
-//	save.close();
-//
-//	save.open("fft2.csv");
-//	for(int i=0; i<rows; i++){
-//		for(int j=0; j<cols; j++){
-//			save << specter[i * cols + j];
-//			if(j != cols - 1){save << ", ";}
-//		}
-//		save << '\n';
-//	}
-//	save.close();
+    std::ofstream save;
+	save.open("grid3.csv");
+	for(int i=0; i<rows; i++){
+		for(int j=0; j<cols; j++){
+			save << grid[i * cols + j];
+			if(j != cols - 1){save << ", ";}
+		}
+		save << '\n';
+	}
+	save.close();
+
+	save.open("fft3.csv");
+	for(int i=0; i<cols; i++){
+		for(int j=0; j<rows; j++){
+			save << specter[i * rows + j];
+			if(j != rows - 1){save << ", ";}
+		}
+		save << '\n';
+	}
+	save.close();
 
 	delete[] grid;
 	delete[] fft;
