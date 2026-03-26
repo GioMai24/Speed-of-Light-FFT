@@ -45,28 +45,6 @@ void coolVec(std::complex<float> *res, int N){
 }
 
 
-///**
-// */
-//void coolVec(std::complex<float> *res, int N, int cols){
-//    int lN = log2(N);
-//    std::complex<float> common = - 2 * pi * i;  // might have sign problem...
-//    for(int s=1; s<log2(N)+1; s++){
-//        int m = 1 << s;
-//        std::complex<float> wm = exp(common / (float) m);
-//        for(int k=0; k<N; k=k*cols+m){
-//            std::complex<float> w = 1;
-//            for(int j=0; j<m/2; j*=cols){
-//                std::complex<float> t = w * res[k+j+m/2];
-//                std::complex<float> u = res[k+j];
-//                res[k+j] = u + t;
-//                res[k+j+m/2] = u - t;
-//                w *= wm;
-//            }
-//        }
-//    }
-//}
-
-
 int main(){
     using namespace std::chrono;
     // frequencies
@@ -81,8 +59,8 @@ int main(){
 
 
 	// grid
-	const int rows = 512;
-	const int cols = 512;
+	const int rows = 2048;
+	const int cols = 2048;
 	const int size = rows * cols;
 	float *grid = new float[size];
 	float xStep = (xMax - xMin) / (float) cols;
@@ -143,7 +121,7 @@ int main(){
     // try with tiling (fft only a part???? Does it work????)
 
     // transpose
-    std::complex<float> *fftT = new std::complex<float>[size];
+//    std::complex<float> *fftT = new std::complex<float>[size];
 //    start = steady_clock::now();
 //    transpose(fft, fftT, rows, cols);
 //    for(int i=0; i<rows; i++){
@@ -205,7 +183,7 @@ int main(){
 	delete[] grid;
 	delete[] fft;
 	delete[] fft2;
-	delete[] fftT;
+//	delete[] fftT;
 	delete[] specter;
 
 	std::cout << std::endl;
