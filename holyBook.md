@@ -14,3 +14,6 @@ I kept playing with the serial code. Transpose is expensive and utterly useless 
 After a month and a half things seems to look better and funny. I can't wait to hit my head against an invisible wall again. Both figuratively and irl.
 
 [1]: code::blocks not Virtual Studio Code. I won't fall in that useless trap again.
+
+## 26/03/2026
+Even the serial code shows "memory coalescence" issues. The columns part of the algorithm is slower than the rows. This is possibly due to cache lines. A naive transposition of the matrix does not speed up the algorithm for the same issue. There must be a way to do this efficiently, but for now I'll keep it that way.
