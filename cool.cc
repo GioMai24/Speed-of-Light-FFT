@@ -55,7 +55,7 @@ int main(){
 	float xMin = 0, xMax = 512;
 	float yMin = 0, yMax = 512;
 
-//    std::ofstream save;
+    std::ofstream save;
 
 
 	// grid
@@ -76,7 +76,7 @@ int main(){
 		yMin += yStep;
 	}
 
-//	save.open("grid3.csv");
+//	save.open("data.csv");
 //	for(int i=0; i<rows; i++){
 //		for(int j=0; j<cols; j++){
 //			save << grid[i * cols + j];
@@ -85,7 +85,7 @@ int main(){
 //		save << std::endl;
 //	}
 //	save.close();
-//
+
 //	centerSpectrum(grid, rows, cols);
 
     // fft rows
@@ -118,22 +118,6 @@ int main(){
         revRow[i] = revBitOrd(i, lRows);
     }
 
-    // try with tiling (fft only a part???? Does it work????)
-
-    // transpose
-//    std::complex<float> *fftT = new std::complex<float>[size];
-//    start = steady_clock::now();
-//    transpose(fft, fftT, rows, cols);
-//    for(int i=0; i<rows; i++){
-//        for(int j=0; j<cols; j++){
-//            fft2[i*cols+ revRow[j]] = fftT[i*cols+j];
-//        }
-//        coolVec(&fft2[i * cols], cols);
-//    }
-//    stop = steady_clock::now();
-//    time_span = duration_cast<duration<double>>(stop - start);
-//    std::cout << "Cols comp, transpose: " << time_span.count() << std::endl;
-
 
     // coolVec inside the loop
     start = steady_clock::now();
@@ -147,28 +131,13 @@ int main(){
     time_span = duration_cast<duration<double>>(stop - start);
     std::cout << "Cols comp, single loop: " << time_span.count() << std::endl;
 
-//    // coolVec outside, switch rows cols
-//    start = steady_clock::now();
-//    for(int i=0; i<rows; i++){
-//        for(int j=0; j<cols; j++){
-//            fft2[j*rows + revRow[i]] = fft[i*cols+j];
-//        }
-//    }
-//    for(int j=0; j<cols; j++){
-//        coolVec(&fft2[j * rows], rows);
-//    }
-//    stop = steady_clock::now();
-//    time_span = duration_cast<duration<double>>(stop - start);
-//    std::cout << "Cols comp, double loop: " << time_span.count() << std::endl;
-
-
     // spectrum then log scale
     float *specter = new float[size];
     for(int i=0; i<size; i++){
-        specter[i] = log(1.f + abs(fft2[i]));
+        specter[i] = 5.f * log(1.f + abs(fft2[i]));
     }
 
-//	save.open("fft3.csv");
+//	save.open("fftAngle.csv");
 //	for(int i=0; i<rows; i++){
 //		for(int j=0; j<cols; j++){
 //			save << specter[j * rows + i];
@@ -183,7 +152,6 @@ int main(){
 	delete[] grid;
 	delete[] fft;
 	delete[] fft2;
-//	delete[] fftT;
 	delete[] specter;
 
 	std::cout << std::endl;

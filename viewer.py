@@ -12,8 +12,8 @@ def displayImage(image):
 
 
 if __name__ == "__main__":
-    displayImage("fft2.csv")
-    plt.show()
+#    displayImage("data.csv")
+#    plt.show()
 
-    displayImage("fft_open.csv")
+    displayImage("fftAngle.csv")
     plt.show()
