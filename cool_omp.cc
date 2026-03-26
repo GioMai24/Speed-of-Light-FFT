@@ -138,26 +138,26 @@ int main(){
 
 
 
-//    std::ofstream save;
-//	save.open("grid_open.csv");
-//	for(int i=0; i<rows; i++){
-//		for(int j=0; j<cols; j++){
-//			save << grid[i * cols + j];
-//			if(j != cols - 1){save << ", ";}
-//		}
-//		save << '\n';
-//	}
-//	save.close();
-//
-//	save.open("fft_open.csv");
-//	for(int i=0; i<rows; i++){
-//		for(int j=0; j<cols; j++){
-//			save << specter[i * cols + j];
-//			if(j != cols - 1){save << ", ";}
-//		}
-//		save << '\n';
-//	}
-//	save.close();
+    std::ofstream save;
+	save.open("grid_open.csv");
+	for(int i=0; i<rows; i++){
+		for(int j=0; j<cols; j++){
+			save << grid[i * cols + j];
+			if(j != cols - 1){save << ", ";}
+		}
+		save << '\n';
+	}
+	save.close();
+
+	save.open("fft_open.csv");
+	for(int i=0; i<rows; i++){
+		for(int j=0; j<cols; j++){
+			save << specter[i * cols + j];
+			if(j != cols - 1){save << ", ";}
+		}
+		save << '\n';
+	}
+	save.close();
 
 
 	delete[] grid;

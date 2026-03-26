@@ -11,6 +11,7 @@ void printArray(T *arr, const int rows, const int cols){
 	}
 }
 
+
 template<typename T>
 void transpose(T *src, T *dst, const int rows, const int cols) {
     for(int i=0; i<rows; i++){
@@ -19,6 +20,7 @@ void transpose(T *src, T *dst, const int rows, const int cols) {
         }
     }
 }
+
 
 /**
  * Modify index order based on bit representation reversal.
@@ -44,24 +46,6 @@ void centerSpectrum(T *arr, const int rows, const int cols){
     for(int i=0; i<rows; i++){
 		for(int j=0; j<cols; j++){
 			arr[i * cols + j] *= pow(-1, i+j);
-		}
-	}
-}
-
-template<typename T>
-void spectrum(std::complex<T> *arr, T *res, const int rows, const int cols){
-    for(int i=0; i<rows; i++){
-		for(int j=0; j<cols; j++){
-			res[i * cols + j] = abs(arr[i * cols + j]);
-		}
-	}
-}
-
-template<typename T>
-void logSpectrum(T *arr, const int rows, const int cols, const T c){
-    for(int i=0; i<rows; i++){
-		for(int j=0; j<cols; j++){
-			arr[i * cols + j] = c * log((T)1 + arr[i * cols + j]);
 		}
 	}
 }

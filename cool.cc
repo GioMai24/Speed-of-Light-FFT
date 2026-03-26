@@ -41,9 +41,31 @@ void coolVec(std::complex<float> *res, int N){
                 w *= wm;
             }
         }
-
     }
 }
+
+
+///**
+// */
+//void coolVec(std::complex<float> *res, int N, int cols){
+//    int lN = log2(N);
+//    std::complex<float> common = - 2 * pi * i;  // might have sign problem...
+//    for(int s=1; s<log2(N)+1; s++){
+//        int m = 1 << s;
+//        std::complex<float> wm = exp(common / (float) m);
+//        for(int k=0; k<N; k=k*cols+m){
+//            std::complex<float> w = 1;
+//            for(int j=0; j<m/2; j*=cols){
+//                std::complex<float> t = w * res[k+j+m/2];
+//                std::complex<float> u = res[k+j];
+//                res[k+j] = u + t;
+//                res[k+j+m/2] = u - t;
+//                w *= wm;
+//            }
+//        }
+//    }
+//}
+
 
 int main(){
     using namespace std::chrono;
@@ -55,10 +77,14 @@ int main(){
 	float xMin = 0, xMax = 512;
 	float yMin = 0, yMax = 512;
 
+//    std::ofstream save;
+
+
 	// grid
-	const int rows = 2048;
-	const int cols = 2048;
-	float *grid = new float[rows * cols]; // using floats must use heap, not stack for large arrays.
+	const int rows = 512;
+	const int cols = 512;
+	const int size = rows * cols;
+	float *grid = new float[size];
 	float xStep = (xMax - xMin) / (float) cols;
 	float yStep = (yMax - yMin) / (float) rows;
 
@@ -72,11 +98,20 @@ int main(){
 		yMin += yStep;
 	}
 
-
-	centerSpectrum(grid, rows, cols);
+//	save.open("grid3.csv");
+//	for(int i=0; i<rows; i++){
+//		for(int j=0; j<cols; j++){
+//			save << grid[i * cols + j];
+//			if(j != cols - 1){save << ", ";}
+//		}
+//		save << std::endl;
+//	}
+//	save.close();
+//
+//	centerSpectrum(grid, rows, cols);
 
     // fft rows
-    std::complex<float> *fft = new std::complex<float>[rows * cols];
+    std::complex<float> *fft = new std::complex<float>[size];
 
     int lCols = log2(cols);
     int revCol[cols];
@@ -93,67 +128,87 @@ int main(){
     }
     steady_clock::time_point stop = steady_clock::now();
     duration<double> time_span = duration_cast<duration<double>>(stop - start);
-    std::cout << time_span.count() << std::endl;
+    std::cout << "Rows computation: " << time_span.count() << std::endl;
 
-    // back to original grid is not used if not for saving
-    centerSpectrum(grid, rows, cols);
-
-
-    // cols (may use grid, if we save it now...)
-    std::complex<float> *fft2 = new std::complex<float>[rows*cols];
 
     // fft cols
+    std::complex<float> *fft2 = new std::complex<float>[size];
+    // revRowing is useless since it's a square matrix, but you never know...
     int lRows = log2(rows);
     int revRow[rows];
     for(int i=0; i<rows; i++){
         revRow[i] = revBitOrd(i, lRows);
     }
 
+    // try with tiling (fft only a part???? Does it work????)
+
+    // transpose
+    std::complex<float> *fftT = new std::complex<float>[size];
+//    start = steady_clock::now();
+//    transpose(fft, fftT, rows, cols);
+//    for(int i=0; i<rows; i++){
+//        for(int j=0; j<cols; j++){
+//            fft2[i*cols+ revRow[j]] = fftT[i*cols+j];
+//        }
+//        coolVec(&fft2[i * cols], cols);
+//    }
+//    stop = steady_clock::now();
+//    time_span = duration_cast<duration<double>>(stop - start);
+//    std::cout << "Cols comp, transpose: " << time_span.count() << std::endl;
+
+
+    // coolVec inside the loop
     start = steady_clock::now();
     for(int j=0; j<cols; j++){
         for(int i=0; i<rows; i++){
-            fft2[j*rows+ revRow[i]] = fft[i*cols+j];
+            fft2[j*rows + revRow[i]] = fft[i*cols+j];
         }
         coolVec(&fft2[j * rows], rows);
     }
     stop = steady_clock::now();
     time_span = duration_cast<duration<double>>(stop - start);
-    std::cout << time_span.count() << std::endl;
+    std::cout << "Cols comp, single loop: " << time_span.count() << std::endl;
 
-//    transpose(fft2, fft, cols, rows);  // overwrites old fftT, now fftT is the DFT of the original dim
+//    // coolVec outside, switch rows cols
+//    start = steady_clock::now();
+//    for(int i=0; i<rows; i++){
+//        for(int j=0; j<cols; j++){
+//            fft2[j*rows + revRow[i]] = fft[i*cols+j];
+//        }
+//    }
+//    for(int j=0; j<cols; j++){
+//        coolVec(&fft2[j * rows], rows);
+//    }
+//    stop = steady_clock::now();
+//    time_span = duration_cast<duration<double>>(stop - start);
+//    std::cout << "Cols comp, double loop: " << time_span.count() << std::endl;
 
 
-    // spectrum
-    float *specter = new float[rows*cols];
-    spectrum(fft2, specter, cols, rows);
-    logSpectrum(specter, cols, rows, 1.f);
+    // spectrum then log scale
+    float *specter = new float[size];
+    for(int i=0; i<size; i++){
+        specter[i] = log(1.f + abs(fft2[i]));
+    }
 
-
-
-    std::ofstream save;
-	save.open("grid3.csv");
-	for(int i=0; i<rows; i++){
-		for(int j=0; j<cols; j++){
-			save << grid[i * cols + j];
-			if(j != cols - 1){save << ", ";}
-		}
-		save << '\n';
-	}
-	save.close();
-
-	save.open("fft3.csv");
-	for(int i=0; i<cols; i++){
-		for(int j=0; j<rows; j++){
-			save << specter[i * rows + j];
-			if(j != rows - 1){save << ", ";}
-		}
-		save << '\n';
-	}
-	save.close();
+//	save.open("fft3.csv");
+//	for(int i=0; i<rows; i++){
+//		for(int j=0; j<cols; j++){
+//			save << specter[j * rows + i];
+//			if(j != rows - 1){
+//                save << ", ";
+//            }
+//		}
+//		save << std::endl;
+//	}
+//	save.close();
 
 	delete[] grid;
 	delete[] fft;
 	delete[] fft2;
+	delete[] fftT;
 	delete[] specter;
+
+	std::cout << std::endl;
+
     return 0;
 }
