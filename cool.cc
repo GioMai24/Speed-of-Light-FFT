@@ -120,6 +120,54 @@ int main(){
 
 
     // coolVec inside the loop
+//    start = steady_clock::now();
+//    for(int j=0; j<cols; j++){
+//        for(int i=0; i<rows; i++){
+//            fft2[j*rows + revRow[i]] = fft[i*cols+j];
+//        }
+//        coolVec(&fft2[j * rows], rows);
+//    }
+//    stop = steady_clock::now();
+//    time_span = duration_cast<duration<double>>(stop - start);
+//    std::cout << "Cols comp, single loop: " << time_span.count() << std::endl;
+
+
+    int B = 1 << 7;
+    std::complex<float> *fftT = new std::complex<float>[size];
+    start = steady_clock::now();
+    transpose(fft, fftT, rows, cols, B);
+    for(int i=0; i<rows; i++){
+        for(int j=0; j<cols; j++){
+            fft2[i*cols + revCol[j]] = fftT[i*cols + j];
+        }
+        coolVec(&fft2[i * cols], cols);
+    }
+    stop = steady_clock::now();
+    time_span = duration_cast<duration<double>>(stop - start);
+    std::cout << "transposed blocked 128: " << time_span.count() << std::endl;
+
+
+    start = steady_clock::now();
+    transpose(fft, rows, cols, B);
+    for(int i=0; i<rows; i++){
+        for(int j=0; j<cols; j++){
+            fft2[i*cols + revCol[j]] = fft[i*cols + j];
+        }
+        coolVec(&fft2[i * cols], cols);
+    }
+    stop = steady_clock::now();
+    time_span = duration_cast<duration<double>>(stop - start);
+    std::cout << "transposed blocked 128 one arr: " << time_span.count() << std::endl;
+    transpose(fft, cols, rows, B);
+
+
+
+//    start = steady_clock::now();
+//    transpose(fft, fftT, rows, cols);
+//    stop = steady_clock::now();
+//    time_span = duration_cast<duration<double>>(stop - start);
+//    std::cout << "Transpose unlocked: " << time_span.count() << std::endl;
+
     start = steady_clock::now();
     for(int j=0; j<cols; j++){
         for(int i=0; i<rows; i++){
@@ -130,6 +178,9 @@ int main(){
     stop = steady_clock::now();
     time_span = duration_cast<duration<double>>(stop - start);
     std::cout << "Cols comp, single loop: " << time_span.count() << std::endl;
+
+
+
 
     // spectrum then log scale
     float *specter = new float[size];
@@ -152,6 +203,7 @@ int main(){
 	delete[] grid;
 	delete[] fft;
 	delete[] fft2;
+	delete[] fftT;
 	delete[] specter;
 
 	std::cout << std::endl;
