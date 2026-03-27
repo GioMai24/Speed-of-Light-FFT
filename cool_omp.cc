@@ -4,12 +4,11 @@
 #include <chrono>
 #include <complex>
 #include <numbers>
-#include <ctime>
 #include "utils.h"
 #include <omp.h>
 
 const std::complex<float> i(0,1);
-const int nThreads = std::atoi(getenv("OMP_NUM_THREADS"));  // NOT SAFE IF FORGET TO DEFINE THE ENV
+//const int nThreads = std::atoi(getenv("OMP_NUM_THREADS"));  // NOT SAFE IF FORGET TO DEFINE THE ENV
 const float pi = std::numbers::pi;
 
 
@@ -59,12 +58,14 @@ int main(){
 	// points
 	float xMin = 0, xMax = 512;
 	float yMin = 0, yMax = 512;
-//	 would be nice to throw an error if min > max
+
+    std::ofstream save;
 
 	// grid
 	const int rows = 2048;
 	const int cols = 2048;
-	float *grid = new float[rows * cols]; // using doubles must use heap, not stack for large arrays.
+	const int size = rows * cols;
+	float *grid = new float[size];
 	float xStep = (xMax - xMin) / (float) cols;
 	float yStep = (yMax - yMin) / (float) rows;
 
@@ -78,11 +79,20 @@ int main(){
 		yMin += yStep;
 	}
 
+//	save.open("grid_open.csv");
+//	for(int i=0; i<rows; i++){
+//		for(int j=0; j<cols; j++){
+//			save << grid[i * cols + j];
+//			if(j != cols - 1){save << ", ";}
+//		}
+//		save << '\n';
+//	}
+//	save.close();
 
 	centerSpectrum(grid, rows, cols);
 
     // fft rows
-    std::complex<float> *fft = new std::complex<float>[rows * cols];
+    std::complex<float> *fft = new std::complex<float>[size];
 
     int lCols = log2(cols);
     int revCol[cols];
@@ -102,13 +112,9 @@ int main(){
     duration<float> time_span = duration_cast<duration<float>>(stop - start);
     std::cout << time_span.count() << std::endl;
 
-    // back to original
-    centerSpectrum(grid, rows, cols);
-
-
-    // transpose
-    std::complex<float> *fftT = new std::complex<float>[rows*cols];
-    transpose(fft, fftT, rows, cols);
+    // transpose  WARNINGGGGG
+    std::complex<float> *fft2 = new std::complex<float>[size];
+    transpose(fft, fft2, rows, cols);
 
     // fft cols
     int lRows = log2(rows);
@@ -121,48 +127,36 @@ int main(){
     #pragma omp parallel for
     for(int j=0; j<cols; j++){
         for(int i=0; i<rows; i++){
-            fft[j*rows + revRow[i]] = fftT[j*rows + i];
+            fft2[j*rows + revRow[i]] = fft[j*rows + i];
         }
-        coolVec(&fft[j * rows], rows);  // overwrites old fft
+        coolVec(&fft2[j * rows], rows);
     }
     stop = steady_clock::now();
     time_span = duration_cast<duration<float>>(stop - start);
     std::cout << time_span.count() << std::endl;
 
-    transpose(fft, fftT, cols, rows);  // overwrites old fftT, now fftT is the DFT of the original dim
 
-    // spectrum
-    float *specter = new float[rows*cols];
-    spectrum(fftT, specter, rows, cols);
-    logSpectrum(specter, rows, cols, 1.f);
+    // spectrum then log scale
+    float *specter = new float[size];
+    #pragma omp parallel for
+    for(int i=0; i<size; i++){
+        specter[i] = 5.f * log(1.f + abs(fft2[i]));
+    }
 
-
-
-    std::ofstream save;
-	save.open("grid_open.csv");
-	for(int i=0; i<rows; i++){
-		for(int j=0; j<cols; j++){
-			save << grid[i * cols + j];
-			if(j != cols - 1){save << ", ";}
-		}
-		save << '\n';
-	}
-	save.close();
-
-	save.open("fft_open.csv");
-	for(int i=0; i<rows; i++){
-		for(int j=0; j<cols; j++){
-			save << specter[i * cols + j];
-			if(j != cols - 1){save << ", ";}
-		}
-		save << '\n';
-	}
-	save.close();
+//	save.open("fft_open.csv");
+//	for(int i=0; i<rows; i++){
+//		for(int j=0; j<cols; j++){
+//			save << specter[i * cols + j];
+//			if(j != cols - 1){save << ", ";}
+//		}
+//		save << '\n';
+//	}
+//	save.close();
 
 
 	delete[] grid;
 	delete[] fft;
-	delete[] fftT;
+	delete[] fft2;
 	delete[] specter;
     return 0;
 }

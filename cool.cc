@@ -86,7 +86,7 @@ int main(){
 //	}
 //	save.close();
 
-//	centerSpectrum(grid, rows, cols);
+	centerSpectrum(grid, rows, cols);
 
     // fft rows
     std::complex<float> *fft = new std::complex<float>[size];

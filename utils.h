@@ -13,6 +13,20 @@ void printArray(T *arr, const int rows, const int cols){
 
 
 template<typename T>
+void transpose(T *src, T *dst, const int rows, const int cols, const int B) {
+    for(int ii=0; ii<rows; ii+=B){
+        for(int jj=0; jj<cols; jj+=B){
+            for(int i=ii; i<ii+B; i++){
+                for(int j=jj; j<jj+B; j++){
+                    dst[j*rows + i] = src[i * cols + j];
+                }
+            }
+        }
+    }
+}
+
+
+template<typename T>
 void transpose(T *src, T *dst, const int rows, const int cols) {
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
@@ -20,6 +34,7 @@ void transpose(T *src, T *dst, const int rows, const int cols) {
         }
     }
 }
+
 
 
 /**
