@@ -17,3 +17,6 @@ After a month and a half things seems to look better and funny. I can't wait to 
 
 ## 26/03/2026
 Even the serial code shows "memory coalescence" issues. The columns part of the algorithm is slower than the rows. This is possibly due to cache lines. A naive transposition of the matrix does not speed up the algorithm for the same issue. There must be a way to do this efficiently, but for now I'll keep it that way.
+
+## 27/03/2026
+Once again, I have been defeated by the cache. I am still trying to optimize the serial code, man, I do not even think it is necessary. I am burning out. The goddamn accesses and locality. I am also starting dreaming about cpp. Pls help.
