@@ -35,22 +35,6 @@ void transpose(T *src, T *dst, const int rows, const int cols, const int B) {
     }
 }
 
-template<typename T>
-void transpose(T *arr, const int rows, const int cols, const int B) {
-    for(int ii=0; ii<rows; ii+=B){
-        for(int jj=0; jj<cols; jj+=B){
-            for(int i=ii; i<ii+B; i++){
-                for(int j=jj; j<jj+B; j++){
-                    T temp = arr[j*rows + i];
-                    arr[j*rows + i] = arr[i*cols + j];
-                    arr[i*cols + j] = temp;
-                }
-            }
-        }
-    }
-}
-
-
 
 /**
  * Modify index order based on bit representation reversal.

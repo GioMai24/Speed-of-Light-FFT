@@ -1,5 +1,5 @@
 #include <iostream>
-#include <fstream>  // file handler
+#include <fstream>
 #include <string>
 #include <cmath>
 #include <complex>
@@ -46,7 +46,11 @@ void coolVec(std::complex<float> *res, int N){
 
 
 
-int main(){
+int main(int argc, char **argv){
+//    if (argc==1){
+//        std::cout << "Missing block size" << std::endl;
+//        return 1;
+//    }
     using namespace std::chrono;
     // frequencies
 	const float fx = 0.3;
@@ -56,7 +60,11 @@ int main(){
 	float xMin = 0, xMax = 256;
 	float yMin = 0, yMax = 256;
 
+	// save stuff & time
     std::ofstream save;
+    steady_clock::time_point t1;
+    steady_clock::time_point t2;
+    duration<double> dt;
 
 
 	// grid
@@ -67,8 +75,11 @@ int main(){
 	std::complex<float> *gridT = new std::complex<float>[size];
 	float xStep = (xMax - xMin) / (float) cols;
 	float yStep = (yMax - yMin) / (float) rows;
+    int B = 8;
+//    int B = atoi(argv[1]);
 
-    steady_clock::time_point t1 = steady_clock::now();
+
+	// data gen
 	for(int i=0; i<rows; i++){
 		float xTemp = xMin;
 		for(int j=0; j<cols; j++){
@@ -77,42 +88,40 @@ int main(){
 		}
 		yMin += yStep;
 	}
-    steady_clock::time_point t2 = steady_clock::now();
-    duration<double> stuff = duration_cast<duration<double>>(t2 - t1);
-    std::cout << "Cosing: " << stuff.count() << std::endl;
 
-	save.open("data.csv");
-	for(int i=0; i<rows; i++){
-		for(int j=0; j<cols; j++){
-			save << grid[i * cols + j].real();
-			if(j != cols - 1){save << ", ";}
-		}
-		save << std::endl;
-	}
-	save.close();
+	// data save
+//	save.open("data.csv");
+//	for(int i=0; i<rows; i++){
+//		for(int j=0; j<cols; j++){
+//			save << grid[i * cols + j].real();
+//			if(j != cols - 1){save << ", ";}
+//		}
+//		save << std::endl;
+//	}
+//	save.close();
+
 
 	centerSpectrum(grid, rows, cols);
 
     // fft rows
-
+    // ordering
     int lCols = log2(cols);
     int revCol[cols];
     for(int j=0; j<cols; j++){
         revCol[j] = revBitOrd(j, lCols);
     }
 
-    steady_clock::time_point start = steady_clock::now();
+    // actual fft
+    t1 = steady_clock::now();
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
-            std::complex<float> temp = grid[i * cols + revCol[j]];
-            grid[i*cols + revCol[j]] = grid[i*cols + j];
-            grid[i*cols + j] = temp;
+            gridT[i * cols + revCol[j]] = grid[i*cols + j];
         }
-        coolVec(&grid[i * cols], cols);
+        coolVec(&gridT[i * cols], cols);
     }
-    steady_clock::time_point stop = steady_clock::now();
-    duration<double> time_span = duration_cast<duration<double>>(stop - start);
-    std::cout << "Rows computation: " << time_span.count() << std::endl;
+    t2 = steady_clock::now();
+    dt = duration_cast<duration<double>>(t2 - t1);
+//    std::cout << "Rows computation: " << dt.count() << std::endl;
 
 
     // fft cols
@@ -123,39 +132,36 @@ int main(){
         revRow[i] = revBitOrd(i, lRows);
     }
 
-    int B = 1 << 7;
-    start = steady_clock::now();
-    transpose(grid, gridT, rows, cols, B);
+    t1 = steady_clock::now();
+    transpose(gridT, grid, rows, cols, B);
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
-            std::complex<float> temp = gridT[i*cols + revRow[j]];
-            gridT[i*cols + revRow[j]] = gridT[i*cols + j];
-            gridT[i*cols + j] = temp;
+            gridT[i*cols + revRow[j]] = grid[i*cols + j];
         }
         coolVec(&gridT[i * cols], cols);
     }
-    stop = steady_clock::now();
-    time_span = duration_cast<duration<double>>(stop - start);
-    std::cout << "transposed blocked 128 one arr: " << time_span.count() << std::endl;
+    t2 = steady_clock::now();
+    dt = duration_cast<duration<double>>(t2 - t1);
+    std::cout << "transposed blocked " << B << " one arr: " << dt.count() << std::endl;
     transpose(gridT, grid, cols, rows, B);
 
 
     // spectrum then log scale
-    for(int i=0; i<size; i++){
-        grid[i] = log(1.f + abs(grid[i]));
-    }
+//    for(int i=0; i<size; i++){
+//        grid[i] = log(1.f + abs(grid[i]));
+//    }
 
-	save.open("fft.csv");
-	for(int i=0; i<rows; i++){
-		for(int j=0; j<cols; j++){
-			save << grid[i * cols + j].real();
-			if(j != cols - 1){
-                save << ", ";
-            }
-		}
-		save << std::endl;
-	}
-	save.close();
+//	save.open("fft.csv");
+//	for(int i=0; i<rows; i++){
+//		for(int j=0; j<cols; j++){
+//			save << grid[i * cols + j].real();
+//			if(j != cols - 1){
+//                save << ", ";
+//            }
+//		}
+//		save << std::endl;
+//	}
+//	save.close();
 
 	delete[] grid;
 	delete[] gridT;
