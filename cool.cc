@@ -142,9 +142,13 @@ int main(int argc, char **argv){
     }
     t2 = steady_clock::now();
     dt = duration_cast<duration<double>>(t2 - t1);
-    std::cout << "transposed blocked " << B << " one arr: " << dt.count() << std::endl;
-    transpose(gridT, grid, cols, rows, B);
+//    std::cout << "transposed blocked " << B << " one arr: " << dt.count() << std::endl;
 
+    t1 = steady_clock::now();
+    transpose(gridT, grid, cols, rows, 8);
+    t2 = steady_clock::now();
+    dt = duration_cast<duration<double>>(t2 - t1);
+    std::cout << "blocked 8 " << dt.count() << std::endl;
 
     // spectrum then log scale
 //    for(int i=0; i<size; i++){
