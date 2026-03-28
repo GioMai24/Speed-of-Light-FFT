@@ -11,6 +11,10 @@ void printArray(T *arr, const int rows, const int cols){
 	}
 }
 
+
+/**
+ * Unblocked transpose. swap version (two grids, no temp)
+ */
 template<typename T>
 void transpose(T *src, T *dst, const int rows, const int cols) {
     for(int i=0; i<rows; i++){
@@ -21,6 +25,24 @@ void transpose(T *src, T *dst, const int rows, const int cols) {
 }
 
 
+/**
+ * Unblocked transpose. Temp variable version
+ */
+template<typename T>
+void transpose(T *src, const int rows, const int cols) {
+    for(int i=0; i<rows; i++){
+        for(int j=i+1; j<cols; j++){
+            T temp = src[i*cols + j];
+            src[i*cols + j] = src[j*rows + i];
+            src[j*rows + i] = temp;
+        }
+    }
+}
+
+
+/**
+ * Blocked transpose. two grids necessary + all cols comp.
+ */
 template<typename T>
 void transpose(T *src, T *dst, const int rows, const int cols, const int B) {
     for(int ii=0; ii<rows; ii+=B){
