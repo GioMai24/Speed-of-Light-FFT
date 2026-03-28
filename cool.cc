@@ -1,5 +1,5 @@
 #include <iostream>
-#include <fstream>  // file handler
+#include <fstream>
 #include <string>
 #include <cmath>
 #include <complex>
@@ -45,30 +45,43 @@ void coolVec(std::complex<float> *res, int N){
 }
 
 
-int main(){
+
+int main(int argc, char **argv){
+//    if (argc==1){
+//        std::cout << "Missing block size" << std::endl;
+//        return 1;
+//    }
     using namespace std::chrono;
     // frequencies
 	const float fx = 0.3;
 	const float fy = 0.8;
 
 	// points
-	float xMin = 0, xMax = 512;
-	float yMin = 0, yMax = 512;
+	float xMin = 0, xMax = 256;
+	float yMin = 0, yMax = 256;
 
+	// save stuff & time
     std::ofstream save;
+    steady_clock::time_point t1;
+    steady_clock::time_point t2;
+    duration<double> dt;
 
 
 	// grid
-	const int rows = 2048;
-	const int cols = 2048;
+	const int rows = 1024;
+	const int cols = 1024;
 	const int size = rows * cols;
-	float *grid = new float[size];
+	std::complex<float> *grid = new std::complex<float>[size];
+	std::complex<float> *gridT = new std::complex<float>[size];
 	float xStep = (xMax - xMin) / (float) cols;
 	float yStep = (yMax - yMin) / (float) rows;
+    int B = 8;
+//    int B = atoi(argv[1]);
 
-	float xTemp;
+
+	// data gen
 	for(int i=0; i<rows; i++){
-		xTemp = xMin;
+		float xTemp = xMin;
 		for(int j=0; j<cols; j++){
 			grid[i * cols + j] = CosCos(xTemp, yMin, fx, fy);
 			xTemp += xStep;
@@ -76,10 +89,11 @@ int main(){
 		yMin += yStep;
 	}
 
+	// data save
 //	save.open("data.csv");
 //	for(int i=0; i<rows; i++){
 //		for(int j=0; j<cols; j++){
-//			save << grid[i * cols + j];
+//			save << grid[i * cols + j].real();
 //			if(j != cols - 1){save << ", ";}
 //		}
 //		save << std::endl;
@@ -89,28 +103,27 @@ int main(){
 	centerSpectrum(grid, rows, cols);
 
     // fft rows
-    std::complex<float> *fft = new std::complex<float>[size];
-
+    // ordering
     int lCols = log2(cols);
     int revCol[cols];
     for(int j=0; j<cols; j++){
         revCol[j] = revBitOrd(j, lCols);
     }
 
-    steady_clock::time_point start = steady_clock::now();
+    // actual fft
+    t1 = steady_clock::now();
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
-            fft[i*cols + revCol[j]] = grid[i*cols + j];
+            gridT[i * cols + revCol[j]] = grid[i*cols + j];
         }
-        coolVec(&fft[i * cols], cols);
+        coolVec(&gridT[i * cols], cols);
     }
-    steady_clock::time_point stop = steady_clock::now();
-    duration<double> time_span = duration_cast<duration<double>>(stop - start);
-    std::cout << "Rows computation: " << time_span.count() << std::endl;
+    t2 = steady_clock::now();
+    dt = duration_cast<duration<double>>(t2 - t1);
+//    std::cout << "Rows computation: " << dt.count() << std::endl;
 
 
     // fft cols
-    std::complex<float> *fft2 = new std::complex<float>[size];
     // revRowing is useless since it's a square matrix, but you never know...
     int lRows = log2(rows);
     int revRow[rows];
@@ -118,30 +131,30 @@ int main(){
         revRow[i] = revBitOrd(i, lRows);
     }
 
-
-    // coolVec inside the loop
-    start = steady_clock::now();
-    for(int j=0; j<cols; j++){
-        for(int i=0; i<rows; i++){
-            fft2[j*rows + revRow[i]] = fft[i*cols+j];
+    t1 = steady_clock::now();
+    transpose(gridT, grid, rows, cols, B);
+    for(int i=0; i<rows; i++){
+        for(int j=0; j<cols; j++){
+            gridT[i*cols + revRow[j]] = grid[i*cols + j];
         }
-        coolVec(&fft2[j * rows], rows);
+        coolVec(&gridT[i * cols], cols);
     }
-    stop = steady_clock::now();
-    time_span = duration_cast<duration<double>>(stop - start);
-    std::cout << "Cols comp, single loop: " << time_span.count() << std::endl;
+    t2 = steady_clock::now();
+    dt = duration_cast<duration<double>>(t2 - t1);
+    std::cout << "transposed blocked " << B << " one arr: " << dt.count() << std::endl;
+    transpose(gridT, grid, cols, rows, B);
+
 
     // spectrum then log scale
-    float *specter = new float[size];
-    for(int i=0; i<size; i++){
-        specter[i] = 5.f * log(1.f + abs(fft2[i]));
-    }
+//    for(int i=0; i<size; i++){
+//        grid[i] = log(1.f + abs(grid[i]));
+//    }
 
-//	save.open("fftAngle.csv");
+//	save.open("fft.csv");
 //	for(int i=0; i<rows; i++){
 //		for(int j=0; j<cols; j++){
-//			save << specter[j * rows + i];
-//			if(j != rows - 1){
+//			save << grid[i * cols + j].real();
+//			if(j != cols - 1){
 //                save << ", ";
 //            }
 //		}
@@ -150,11 +163,7 @@ int main(){
 //	save.close();
 
 	delete[] grid;
-	delete[] fft;
-	delete[] fft2;
-	delete[] specter;
-
-	std::cout << std::endl;
+	delete[] gridT;
 
     return 0;
 }
