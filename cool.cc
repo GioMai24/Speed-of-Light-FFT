@@ -55,7 +55,7 @@ int main(int argc, char **argv){
 //    }
     using namespace std::chrono;
 
-    bool saveData = true;
+    bool saveData = false;
 
     // frequencies
 	const float fx = 0.3;
@@ -129,7 +129,7 @@ int main(int argc, char **argv){
     }
     t2 = steady_clock::now();
     dt = duration_cast<duration<double>>(t2 - t1);
-//    std::cout << "Rows computation: " << dt.count() << std::endl;
+    std::cout << "Rows computation: " << dt.count() << std::endl;
 
 
     // fft cols
@@ -152,7 +152,7 @@ int main(int argc, char **argv){
     }
     t2 = steady_clock::now();
     dt = duration_cast<duration<double>>(t2 - t1);
-//    std::cout << "transposed blocked " << B << " one arr: " << dt.count() << std::endl;
+    std::cout << "transposed blocked " << B << " one arr: " << dt.count() << std::endl;
 
     t1 = steady_clock::now();
     transpose(gridT, grid, cols, rows, 8);
