@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 import numpy as np
+import sys 
 
 if __name__=="__main__":
-    ser = np.loadtxt("fft_open.csv", delimiter=',')
-    omp = np.loadtxt("fft3.csv", delimiter=',')
+    if len(sys.argv) != 3: raise RuntimeError("I need two files dude!")
+    ser = np.loadtxt(sys.argv[1], delimiter=',')
+    omp = np.loadtxt(sys.argv[2], delimiter=',')
     print(np.allclose(ser, omp))

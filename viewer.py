@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 
 
 def displayImage(image):
@@ -12,8 +13,7 @@ def displayImage(image):
 
 
 if __name__ == "__main__":
-    displayImage("data.csv")
-    plt.show()
-
-    displayImage("fft.csv")
-    plt.show()
+    if len(sys.argv) == 1: raise RuntimeError("Give me something to work with!")
+    for img in sys.argv[1:]:
+        displayImage(img)
+        plt.show()
