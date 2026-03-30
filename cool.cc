@@ -129,7 +129,7 @@ int main(int argc, char **argv){
     }
     t2 = steady_clock::now();
     dt = duration_cast<duration<double>>(t2 - t1);
-    std::cout << "Rows computation: " << dt.count() << std::endl;
+//    std::cout << "Rows computation: " << dt.count() << std::endl;
 
 
     // fft cols
@@ -142,7 +142,8 @@ int main(int argc, char **argv){
     }
 
     t1 = steady_clock::now();
-    transpose(gridT, grid, rows, cols, B);
+    transpose(gridT, grid, rows, cols);
+    t2 = steady_clock::now();
     #pragma omp parallel for
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
@@ -150,12 +151,11 @@ int main(int argc, char **argv){
         }
         coolVec(&gridT[i * cols], cols);
     }
-    t2 = steady_clock::now();
     dt = duration_cast<duration<double>>(t2 - t1);
-    std::cout << "transposed blocked " << B << " one arr: " << dt.count() << std::endl;
+    std::cout << "transposed unblocked " << dt.count() << std::endl;
 
     t1 = steady_clock::now();
-    transpose(gridT, grid, cols, rows, 8);
+    transpose(gridT, grid, cols, rows, B);
     t2 = steady_clock::now();
     dt = duration_cast<duration<double>>(t2 - t1);
     std::cout << "blocked 8 " << dt.count() << std::endl;
