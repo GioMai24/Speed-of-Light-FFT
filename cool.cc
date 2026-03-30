@@ -5,10 +5,12 @@
 #include <complex>
 #include <numbers>
 #include <chrono>
+#include <omp.h>
 #include "utils.h"
 
 const std::complex<float> i(0,1);
 const float pi = std::numbers::pi;
+const int nThreads = std::atoi(getenv("OMP_NUM_THREADS"));
 
 
 /**
@@ -52,13 +54,16 @@ int main(int argc, char **argv){
 //        return 1;
 //    }
     using namespace std::chrono;
+
+    bool saveData = true;
+
     // frequencies
 	const float fx = 0.3;
 	const float fy = 0.8;
 
 	// points
-	float xMin = 0, xMax = 256;
-	float yMin = 0, yMax = 256;
+	float xMin = 0, xMax = 512;
+	float yMin = 0, yMax = 512;
 
 	// save stuff & time
     std::ofstream save;
@@ -90,28 +95,32 @@ int main(int argc, char **argv){
 	}
 
 	// data save
-//	save.open("data.csv");
-//	for(int i=0; i<rows; i++){
-//		for(int j=0; j<cols; j++){
-//			save << grid[i * cols + j].real();
-//			if(j != cols - 1){save << ", ";}
-//		}
-//		save << std::endl;
-//	}
-//	save.close();
+	if (saveData){
+        save.open("dataOpen2.csv");
+        for(int i=0; i<rows; i++){
+            for(int j=0; j<cols; j++){
+                save << grid[i * cols + j].real();
+                if(j != cols - 1){save << ", ";}
+            }
+            save << std::endl;
+        }
+        save.close();
 
-	centerSpectrum(grid, rows, cols);
+        centerSpectrum(grid, rows, cols);
+	}
 
     // fft rows
     // ordering
     int lCols = log2(cols);
     int revCol[cols];
+    #pragma omp parallel for
     for(int j=0; j<cols; j++){
         revCol[j] = revBitOrd(j, lCols);
     }
 
     // actual fft
     t1 = steady_clock::now();
+    #pragma omp parallel for
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             gridT[i * cols + revCol[j]] = grid[i*cols + j];
@@ -127,12 +136,14 @@ int main(int argc, char **argv){
     // revRowing is useless since it's a square matrix, but you never know...
     int lRows = log2(rows);
     int revRow[rows];
+    #pragma omp parallel for
     for(int i=0; i<rows; i++){
         revRow[i] = revBitOrd(i, lRows);
     }
 
     t1 = steady_clock::now();
     transpose(gridT, grid, rows, cols, B);
+    #pragma omp parallel for
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             gridT[i*cols + revRow[j]] = grid[i*cols + j];
@@ -149,22 +160,25 @@ int main(int argc, char **argv){
     dt = duration_cast<duration<double>>(t2 - t1);
     std::cout << "blocked 8 " << dt.count() << std::endl;
 
-    // spectrum then log scale
-//    for(int i=0; i<size; i++){
-//        grid[i] = log(1.f + abs(grid[i]));
-//    }
+    if (saveData){
+        // spectrum then log scale
+        #pragma omp parallel for
+        for(int i=0; i<size; i++){
+            grid[i] = log(1.f + abs(grid[i]));
+        }
 
-//	save.open("fft.csv");
-//	for(int i=0; i<rows; i++){
-//		for(int j=0; j<cols; j++){
-//			save << grid[i * cols + j].real();
-//			if(j != cols - 1){
-//                save << ", ";
-//            }
-//		}
-//		save << std::endl;
-//	}
-//	save.close();
+        save.open("fftOpen2.csv");
+        for(int i=0; i<rows; i++){
+            for(int j=0; j<cols; j++){
+                save << grid[i * cols + j].real();
+                if(j != cols - 1){
+                    save << ", ";
+                }
+            }
+            save << std::endl;
+        }
+        save.close();
+    }
 
 	delete[] grid;
 	delete[] gridT;

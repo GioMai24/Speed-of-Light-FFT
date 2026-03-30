@@ -19,7 +19,7 @@ template<typename T>
 void transpose(T *src, T *dst, const int rows, const int cols) {
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
-            dst[j*rows + i] = src[i * cols + j];
+            dst[i*cols + j] = src[j*rows + i];
         }
     }
 }
