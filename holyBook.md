@@ -20,3 +20,14 @@ Even the serial code shows "memory coalescence" issues. The columns part of the 
 
 ## 27/03/2026
 Once again, I have been defeated by the cache. I am still trying to optimize the serial code, man, I do not even think it is necessary. I am burning out. The goddamn accesses and locality. I am also starting dreaming about cpp. Pls help.
+
+## 31/03/2026
+I am kinda blocked on the OMP code. It looks quite too simple. All I did was parallelizing over the rows, but having 8 cores, I guess it is a fair work.
+
+I switched to CUDA because I hate myself and I wanted to finally put my hands on it. Took me again some days. I first tried to simply parallelize over the rows, much like the OMP desguhsting version. It did not look great at all. There must have been another way. So I parallellized the work over the rows for each stride thingy.
+
+As you may grasp it is quite late, I am very sleepy, and I quite cannot write or think.
+
+The FFT looks fast indeed, but I only did the transform over the rows. Now we must transpose and do the columns. Also I guess the revBitOrder might be done over the GPU, but we'll see.
+
+I must sleep. Good night
