@@ -1,8 +1,10 @@
 #include <iostream>
 #include <fstream>
-#include <cuda/std/numbers>
+//#include <cuda/std/numbers>
+#include <numbers>
 #include <cmath>
-#include <cuda/std/complex>
+//#include <cuda/std/complex>
+#include <complex>
 #include <string>
 
 
@@ -10,7 +12,8 @@
  * The function
  */
 float CosCos(const float x, const float y, const float fx, const float fy){
-	return cos(2 * cuda::std::numbers::pi * fx * x) * cos(2 * cuda::std::numbers::pi * fy * y);
+//	return cos(2 * cuda::std::numbers::pi * fx * x) * cos(2 * cuda::std::numbers::pi * fy * y);
+	return cos(2 * std::numbers::pi * fx * x) * cos(2 * std::numbers::pi * fy * y);
 }
 
 
@@ -27,7 +30,8 @@ int main(int argc, char **argv){
 	const int size = rows * cols;
 	float xStep = xMax / (float) cols;
 	float yStep = yMax / (float) rows;
-	cuda::std::complex<float> *arr = new cuda::std::complex<float>[size];
+//	cuda::std::complex<float> *arr = new cuda::std::complex<float>[size];
+	float *arr = new float[size];
 
 	for(int i=0; i<rows; i++){
 		xTemp = 0;
@@ -39,7 +43,8 @@ int main(int argc, char **argv){
 	}
 
 	save.open(name, std::ios::binary);
-	save.write(reinterpret_cast<char*> (arr), size * sizeof(cuda::std::complex<float>)/sizeof(char));
+//	save.write(reinterpret_cast<char*> (arr), size * sizeof(cuda::std::complex<float>)/sizeof(char));
+	save.write(reinterpret_cast<char*> (arr), size * sizeof(float)/sizeof(char));
 	save.close();
 
 	delete[] arr;
