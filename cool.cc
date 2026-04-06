@@ -129,7 +129,7 @@ int main(int argc, char **argv){
     }
     t2 = steady_clock::now();
     dt = duration_cast<duration<double>>(t2 - t1);
-//    std::cout << "Rows computation: " << dt.count() << std::endl;
+    std::cout << "Revbit computation: " << dt.count() << std::endl;
 
 
     // fft cols
