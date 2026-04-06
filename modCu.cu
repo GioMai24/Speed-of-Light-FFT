@@ -39,7 +39,7 @@ __global__ void coolSubKer(cuda::std::complex<float> *res, const int m, const in
 
 template<typename T>
 __global__ void sharedTransposeKer(T *in, T *out, const int cols){
-    __shared__ T helper[32][33];
+    __shared__ T helper[32][32];
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     helper[threadIdx.x][threadIdx.y] = in[row * cols + col];
@@ -102,10 +102,9 @@ int main(int argc, char **argv){
     const int blockCols = 16;
     const int threadsXBlock = cols / 2 / blockCols;
     dim3 blocks(blockCols, rows);
-    dim3 blocksT(32, 32);
-    dim3 threadsXBlockT(32, 32);
+    dim3 blocksT(64, 64);
+    dim3 threadsXBlockT(16, 16);
 
-	cudaEventRecord(cuT1, stream);
     revBitOrdKer<<<blocks, threadsXBlock*2, 0, stream>>>(Dgrid, DgridT, cols);
     for(int s=1; s<=log2(cols); s++){
         int m = 1 << s;
@@ -119,7 +118,9 @@ int main(int argc, char **argv){
         int m = 1 << s;
         coolSubKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
     }
-    sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
+	cudaEventRecord(cuT1, stream);
+//    sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
+    transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
     cudaEventRecord(cuT2, stream);
     cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
     cudaStreamSynchronize(stream);
