@@ -28,13 +28,15 @@ __global__ void coolSubKer(cuda::std::complex<float> *res, const int m, const in
     int xId = blockDim.x * blockIdx.x + threadIdx.x;
     int j = xId & ((m >> 1) - 1);  // modulo
     int k = (2 * xId >> cuda::ilog2(m)) * m;
-    cuda::std::complex<float> w = pow(cuda::std::polar(1.f, -2 * cuda::std::numbers::pi_v<float> / (float) m), j);
+    cuda::std::complex<float> w = cuda::std::polar(1.f, -2 * j * cuda::std::numbers::pi_v<float> / (float) m);
+//    cuda::std::complex<float> w = pow(cuda::std::polar(1.f, -2 * cuda::std::numbers::pi_v<float> / (float) m), j);
 
     cuda::std::complex<float> t = w * res[k + j + (m >> 1) + blockIdx.y * cols];
     cuda::std::complex<float> u = res[k + j + blockIdx.y * cols];
     res[k + j + blockIdx.y * cols] = u + t;
     res[k + j + (m >> 1) + blockIdx.y * cols] = u - t;
 }
+
 
 template<typename T>
 __global__ void sharedTransposeKer(T *in, T *out, const int cols){
@@ -92,18 +94,19 @@ int main(int argc, char **argv){
 	load.read(reinterpret_cast<char *> (grid), nChar);
 	load.close();
 
-    if (saveData){
-        centerSpectrum(grid, rows, cols);
-    }
+//    if (saveData){
+//        centerSpectrum(grid, rows, cols);
+//    }
 	cudaMemcpyAsync(Dgrid, grid, cuSize, cudaMemcpyHostToDevice, stream);
 
     // fft rows
     const int blockCols = 16;
     const int threadsXBlock = cols / 2 / blockCols;
-    dim3 blocks(16, rows);
+    dim3 blocks(blockCols, rows);
     dim3 blocksT(32, 32);
     dim3 threadsXBlockT(32, 32);
 
+	cudaEventRecord(cuT1, stream);
     revBitOrdKer<<<blocks, threadsXBlock*2, 0, stream>>>(Dgrid, DgridT, cols);
     for(int s=1; s<=log2(cols); s++){
         int m = 1 << s;
@@ -111,22 +114,21 @@ int main(int argc, char **argv){
     }
 
     // fft cols (works because square matrix...)
-	cudaEventRecord(cuT1, stream);
     sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
-    cudaEventRecord(cuT2, stream);
     revBitOrdKer<<<blocks, threadsXBlock*2, 0, stream>>>(Dgrid, DgridT, cols);
     for(int s=1; s<=log2(cols); s++){
         int m = 1 << s;
         coolSubKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
     }
     sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
+    cudaEventRecord(cuT2, stream);
     cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
     cudaStreamSynchronize(stream);
     // spectrum then log scale
     if (saveData){
         float *saveFft = new float[size];
         for(int i=0; i<size; i++){
-            saveFft[i] = log(1.f + abs(grid[i]));
+            saveFft[i] = log(1.f + hypotf(grid[i].real(), grid[i].imag()));
         }
 
         save.open("data/fftCu.bin", std::ios::binary);
