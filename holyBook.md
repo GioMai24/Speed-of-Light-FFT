@@ -31,3 +31,8 @@ As you may grasp it is quite late, I am very sleepy, and I quite cannot write or
 The FFT looks fast indeed, but I only did the transform over the rows. Now we must transpose and do the columns. Also I guess the revBitOrder might be done over the GPU, but we'll see.
 
 I must sleep. Good night
+
+## 06/04/2026
+Implemented cuFFT library. It runs in ~0.2 ms, which is 10 times faster than my raw cuda implementation.
+
+I'm kind of stuck in CUDA, shared memory seems usable only with the transpose kernel. Which is not event the slowest kernel. The main coolSubKer loop is the slowest, yet I cannot find a way to make it faster. Lest I change paradigm, which would be weird?
