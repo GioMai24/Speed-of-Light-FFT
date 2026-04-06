@@ -12,7 +12,7 @@
 int main(int argc, char **argv){
 
 	// files
-    bool saveData = true;
+    bool saveData = false;
     std::ifstream load;
     std::ofstream save;
 
@@ -45,9 +45,9 @@ int main(int argc, char **argv){
 	load.read(reinterpret_cast<char *> (grid), nChar);
 	load.close();
 
-//    if (saveData){
-//        centerSpectrum(grid, rows, cols);
-//    }
+    if (saveData){
+        centerSpectrum(grid, rows, cols);
+    }
 	cudaMemcpyAsync(Dgrid, grid, cuSize, cudaMemcpyHostToDevice, stream);
 
 	cudaEventRecord(cuT1, stream);
