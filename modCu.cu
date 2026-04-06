@@ -29,7 +29,6 @@ __global__ void coolSubKer(cuda::std::complex<float> *res, const int m, const in
     int j = xId & ((m >> 1) - 1);  // modulo
     int k = (2 * xId >> cuda::ilog2(m)) * m;
     cuda::std::complex<float> w = cuda::std::polar(1.f, -2 * j * cuda::std::numbers::pi_v<float> / (float) m);
-//    cuda::std::complex<float> w = pow(cuda::std::polar(1.f, -2 * cuda::std::numbers::pi_v<float> / (float) m), j);
 
     cuda::std::complex<float> t = w * res[k + j + (m >> 1) + blockIdx.y * cols];
     cuda::std::complex<float> u = res[k + j + blockIdx.y * cols];
