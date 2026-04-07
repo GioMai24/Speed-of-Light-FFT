@@ -118,12 +118,15 @@ int main(int argc, char **argv){
 	cudaMemcpyAsync(Dgrid, grid, cuSize, cudaMemcpyHostToDevice, stream);
 
     // fft rows
-    const int blockCols = 16;
-    const int threadsXBlock = cols / 2 / blockCols;
+//    const int blockCols = 16;
+//    const int threadsXBlock = cols / 2 / blockCols;
+    const int threadsXBlock = 512;
+    const int blockCols = cols / 2 / threadsXBlock;
     dim3 blocks(blockCols, rows);
     dim3 blocksT(32, 32);
     dim3 threadsXBlockT(32, 32);
 
+	cudaEventRecord(cuT1, stream);
     revBitOrdKer<<<blocks, threadsXBlock*2, 0, stream>>>(Dgrid, DgridT, cols);
     for(int s=1; s<=log2(cols); s++){
         int m = 1 << s;
@@ -131,19 +134,19 @@ int main(int argc, char **argv){
     }
 
     // fft cols (works because square matrix...)
-	cudaEventRecord(cuT1, stream);
     sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
 //    transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
-    cudaEventRecord(cuT2, stream);
-    revBitOrdKer<<<blocks, threadsXBlock*2, 0, stream>>>(Dgrid, DgridT, cols);
+    revBitShOrdKer<<<1024, 1024, 0, stream>>>(Dgrid, DgridT, cols);
     for(int s=1; s<=log2(cols); s++){
         int m = 1 << s;
         coolSubKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
     }
 //    sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
     transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
+    cudaEventRecord(cuT2, stream);
     cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
     cudaStreamSynchronize(stream);
+
     // spectrum then log scale
     if (saveData){
         float *saveFft = new float[size];
