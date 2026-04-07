@@ -20,6 +20,25 @@ __global__ void revBitOrdKer(cuda::std::complex<float> *in, cuda::std::complex<f
     out[blockIdx.y * cols + rXId] = in[blockIdx.y * cols + xId];
 }
 
+/**
+ * <<<rows, cols>>> limited by max threads x block, and shared memory definition...
+ */
+__global__ void revBitShOrdKer(cuda::std::complex<float> *in, cuda::std::complex<float> *out, const int cols){
+    __shared__ cuda::std::complex<float> help[1024];  // Oh to maually change this... (cols)
+    help[threadIdx.x] = in[blockIdx.x * cols + threadIdx.x];
+    int xId = threadIdx.x;
+    int n = xId;
+    const int lCols = cuda::ilog2(cols);
+    int rXId = 0;
+    for(int i=0; i<lCols; i++){
+        rXId <<= 1;
+        rXId |= (n & 1);
+        n >>= 1;
+    }
+    __syncthreads();
+    out[blockIdx.x * cols + xId] = help[rXId];
+}
+
 
 /**
  * Set <<<(grid.x, rows), threads>>> where grid.x * threads = cols/2
@@ -60,7 +79,7 @@ int main(int argc, char **argv){
     using namespace std::chrono;
 
 	// files
-    bool saveData = false;
+    bool saveData = true;
     std::ifstream load;
     std::ofstream save;
 
@@ -75,8 +94,8 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 4096;
-	const int cols = 4096;
+	const int rows = 1024;
+	const int cols = 1024;
 	const int size = rows * cols;
 	const int cuSize = size * sizeof(cuda::std::complex<float>);
     cuda::std::complex<float> *grid = nullptr;
@@ -93,16 +112,16 @@ int main(int argc, char **argv){
 	load.read(reinterpret_cast<char *> (grid), nChar);
 	load.close();
 
-//    if (saveData){
-//        centerSpectrum(grid, rows, cols);
-//    }
+    if (saveData){
+        centerSpectrum(grid, rows, cols);
+    }
 	cudaMemcpyAsync(Dgrid, grid, cuSize, cudaMemcpyHostToDevice, stream);
 
     // fft rows
-    const int blockCols = 32;
+    const int blockCols = 16;
     const int threadsXBlock = cols / 2 / blockCols;
     dim3 blocks(blockCols, rows);
-    dim3 blocksT(128, 128);
+    dim3 blocksT(32, 32);
     dim3 threadsXBlockT(32, 32);
 
     revBitOrdKer<<<blocks, threadsXBlock*2, 0, stream>>>(Dgrid, DgridT, cols);

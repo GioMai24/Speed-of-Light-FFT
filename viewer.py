@@ -5,7 +5,7 @@ import sys
 
 
 def displayImage(image):
-    arr = np.fromfile(image, dtype="float32").reshape((4096, 4096)).real
+    arr = np.fromfile(image, dtype="float32").reshape((1024, 1024)).real
     fig, ax = plt.subplots(figsize=(5,5))
     im = ax.imshow(arr)
     fig.colorbar(im)
