@@ -39,7 +39,7 @@ __global__ void coolSubKer(cuda::std::complex<float> *res, const int m, const in
 
 template<typename T>
 __global__ void sharedTransposeKer(T *in, T *out, const int cols){
-    __shared__ T helper[32][32];
+    __shared__ T helper[32][33];
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     helper[threadIdx.x][threadIdx.y] = in[row * cols + col];
@@ -60,7 +60,7 @@ int main(int argc, char **argv){
     using namespace std::chrono;
 
 	// files
-    bool saveData = true;
+    bool saveData = false;
     std::ifstream load;
     std::ofstream save;
 
@@ -75,8 +75,8 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 1024;
-	const int cols = 1024;
+	const int rows = 4096;
+	const int cols = 4096;
 	const int size = rows * cols;
 	const int cuSize = size * sizeof(cuda::std::complex<float>);
     cuda::std::complex<float> *grid = nullptr;
@@ -99,11 +99,11 @@ int main(int argc, char **argv){
 	cudaMemcpyAsync(Dgrid, grid, cuSize, cudaMemcpyHostToDevice, stream);
 
     // fft rows
-    const int blockCols = 16;
+    const int blockCols = 32;
     const int threadsXBlock = cols / 2 / blockCols;
     dim3 blocks(blockCols, rows);
-    dim3 blocksT(64, 64);
-    dim3 threadsXBlockT(16, 16);
+    dim3 blocksT(128, 128);
+    dim3 threadsXBlockT(32, 32);
 
     revBitOrdKer<<<blocks, threadsXBlock*2, 0, stream>>>(Dgrid, DgridT, cols);
     for(int s=1; s<=log2(cols); s++){
@@ -112,16 +112,17 @@ int main(int argc, char **argv){
     }
 
     // fft cols (works because square matrix...)
+	cudaEventRecord(cuT1, stream);
     sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
+//    transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
+    cudaEventRecord(cuT2, stream);
     revBitOrdKer<<<blocks, threadsXBlock*2, 0, stream>>>(Dgrid, DgridT, cols);
     for(int s=1; s<=log2(cols); s++){
         int m = 1 << s;
         coolSubKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
     }
-	cudaEventRecord(cuT1, stream);
 //    sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
     transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
-    cudaEventRecord(cuT2, stream);
     cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
     cudaStreamSynchronize(stream);
     // spectrum then log scale

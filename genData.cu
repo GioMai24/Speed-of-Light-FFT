@@ -18,7 +18,7 @@ int main(int argc, char **argv){
 	/*
 	 * Change the following parameters.
 	 */ 
-	int rows=1024, cols=1024;
+	int rows=4096, cols=4096;
 	float fx=0.3, fy=0.8, xMax=512, yMax=512;
 	std::string name="data.bin";
 
