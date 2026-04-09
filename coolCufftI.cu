@@ -28,8 +28,8 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 1024;
-	const int cols = 1024;
+	const int rows = 4096;
+	const int cols = rows;
 	const int size = rows * cols;
 	const int cuSize = size  * sizeof(cufftComplex);
     cufftComplex *grid = nullptr;
@@ -39,7 +39,7 @@ int main(int argc, char **argv){
     cufftPlan2d(&plan, rows, cols, CUFFT_C2C);
     cufftSetStream(plan, stream);
 
-	load.open("data/data.bin", std::ios::binary | std::ios::ate);
+	load.open("data/4096.bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
 	load.seekg(0);
 	load.read(reinterpret_cast<char *> (grid), nChar);
