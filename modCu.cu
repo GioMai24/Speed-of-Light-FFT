@@ -94,8 +94,8 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 1024;
-	const int cols = 1024;
+	const int rows = 4096;
+	const int cols = 4096;
 	const int size = rows * cols;
 	const int cuSize = size * sizeof(cuda::std::complex<float>);
     cuda::std::complex<float> *grid = nullptr;
@@ -106,7 +106,7 @@ int main(int argc, char **argv){
 	cudaMalloc(&DgridT, cuSize);
 
 
-	load.open("data/data.bin", std::ios::binary | std::ios::ate);
+	load.open("data/4096.bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
 	load.seekg(0);
 	load.read(reinterpret_cast<char *> (grid), nChar);
@@ -120,7 +120,7 @@ int main(int argc, char **argv){
     // fft rows
 //    const int blockCols = 16;
 //    const int threadsXBlock = cols / 2 / blockCols;
-    const int threadsXBlock = 512;
+    const int threadsXBlock = 1024;
     const int blockCols = cols / 2 / threadsXBlock;
     dim3 blocks(blockCols, rows);
     dim3 blocksT(32, 32);
@@ -136,13 +136,14 @@ int main(int argc, char **argv){
     // fft cols (works because square matrix...)
     sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
 //    transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
-    revBitShOrdKer<<<1024, 1024, 0, stream>>>(Dgrid, DgridT, cols);
+//    revBitShOrdKer<<<1024, 1024, 0, stream>>>(Dgrid, DgridT, cols);
+    revBitOrdKer<<<blocks, threadsXBlock*2, 0, stream>>>(Dgrid, DgridT, cols);
     for(int s=1; s<=log2(cols); s++){
         int m = 1 << s;
         coolSubKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
     }
-//    sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
-    transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
+    sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
+//    transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
     cudaEventRecord(cuT2, stream);
     cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
     cudaStreamSynchronize(stream);

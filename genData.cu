@@ -20,7 +20,7 @@ int main(int argc, char **argv){
 	 */ 
 	int rows=4096, cols=4096;
 	float fx=0.3, fy=0.8, xMax=512, yMax=512;
-	std::string name="data.bin";
+	std::string name="data/4096.bin";
 
 	std::ofstream save;
 	float xTemp, yTemp=0;
