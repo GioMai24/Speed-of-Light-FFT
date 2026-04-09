@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <string>
 #include <cuda/std/numbers>
 #include <cmath>
 #include <cuda/std/complex>
@@ -18,9 +19,13 @@ int main(int argc, char **argv){
 	/*
 	 * Change the following parameters.
 	 */ 
-	int rows=4096, cols=4096;
-	float fx=0.3, fy=0.8, xMax=512, yMax=512;
-	std::string name="data/4096.bin";
+	std::string N;
+	std::cout << "N? " << std::endl;
+	std::cin >> N;
+	int rows = std::stoi(N);
+	int cols=rows;
+	float fx=0.3, fy=0.8, xMax=rows/2, yMax=rows/2;
+	std::string name="data/" + N + ".bin";
 
 	std::ofstream save;
 	float xTemp, yTemp=0;

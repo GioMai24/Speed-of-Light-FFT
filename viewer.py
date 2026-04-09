@@ -4,8 +4,8 @@ import numpy as np
 import sys
 
 
-def displayImage(image):
-    arr = np.fromfile(image, dtype="float32").reshape((1024, 1024)).real
+def displayImage(image, size):
+    arr = np.fromfile(image, dtype="float32").reshape((size, size))
     fig, ax = plt.subplots(figsize=(5,5))
     im = ax.imshow(arr)
     fig.colorbar(im)
@@ -14,6 +14,7 @@ def displayImage(image):
 
 if __name__ == "__main__":
     if len(sys.argv) == 1: raise RuntimeError("Give me something to work with!")
+    size = int(input("What's N? "))
     for img in sys.argv[1:]:
-        displayImage(img)
+        displayImage(img, size)
         plt.show()
