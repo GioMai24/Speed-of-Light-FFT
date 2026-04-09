@@ -6,7 +6,7 @@
 #include <numbers>
 #include <chrono>
 #include <omp.h>
-#include "utils.h"
+#include "utilsMP.h"
 
 const std::complex<float> i(0,1);
 const float pi = std::numbers::pi;
@@ -55,7 +55,7 @@ int main(int argc, char **argv){
 //    }
     using namespace std::chrono;
 
-    bool saveData = false;
+    bool saveData = true;
 
     // frequencies
 	const float fx = 0.3;
@@ -113,13 +113,13 @@ int main(int argc, char **argv){
     // ordering
     int lCols = log2(cols);
     int revCol[cols];
+    t1 = steady_clock::now();
     #pragma omp parallel for
     for(int j=0; j<cols; j++){
         revCol[j] = revBitOrd(j, lCols);
     }
 
     // actual fft
-    t1 = steady_clock::now();
     #pragma omp parallel for
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
@@ -127,9 +127,6 @@ int main(int argc, char **argv){
         }
         coolVec(&gridT[i * cols], cols);
     }
-    t2 = steady_clock::now();
-    dt = duration_cast<duration<double>>(t2 - t1);
-    std::cout << "Revbit computation: " << dt.count() << std::endl;
 
 
     // fft cols
@@ -141,9 +138,7 @@ int main(int argc, char **argv){
         revRow[i] = revBitOrd(i, lRows);
     }
 
-    t1 = steady_clock::now();
     transpose(gridT, grid, rows, cols);
-    t2 = steady_clock::now();
     #pragma omp parallel for
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
@@ -151,14 +146,11 @@ int main(int argc, char **argv){
         }
         coolVec(&gridT[i * cols], cols);
     }
-    dt = duration_cast<duration<double>>(t2 - t1);
-    std::cout << "transposed unblocked " << dt.count() << std::endl;
 
-    t1 = steady_clock::now();
     transpose(gridT, grid, cols, rows, B);
     t2 = steady_clock::now();
     dt = duration_cast<duration<double>>(t2 - t1);
-    std::cout << "blocked 8 " << dt.count() << std::endl;
+    std::cout << "Time: " << dt.count() << std::endl;
 
     if (saveData){
         // spectrum then log scale
