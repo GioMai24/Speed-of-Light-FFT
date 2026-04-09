@@ -1,16 +1,16 @@
 #include <iostream>
-#include <fstream>  // file handler
+#include <fstream>
 #include <string>
-#include <chrono>
+#include <cmath>
 #include <complex>
 #include <numbers>
-#include "utils.h"
+#include <chrono>
 #include <omp.h>
+#include "utilsMP.h"
 
 const std::complex<float> i(0,1);
-//const int nThreads = std::atoi(getenv("OMP_NUM_THREADS"));  // NOT SAFE IF FORGET TO DEFINE THE ENV
 const float pi = std::numbers::pi;
-
+const int nThreads = std::atoi(getenv("OMP_NUM_THREADS"));
 
 
 /**
@@ -24,9 +24,8 @@ float CosCos(const float x, const float y, const float fx, const float fy){
 /**
  * DFT using radix-2 Cooley-Tukey algorithm.
  *
- * @param *x Input 1D array to transform.
  * @param *res Output 1D array to store results.
- * @param N Size of both x and res.
+ * @param N Size of res.
  */
 void coolVec(std::complex<float> *res, int N){
     int lN = log2(N);
@@ -44,14 +43,21 @@ void coolVec(std::complex<float> *res, int N){
                 w *= wm;
             }
         }
-
     }
 }
 
-int main(){
+
+
+int main(int argc, char **argv){
+//    if (argc==1){
+//        std::cout << "Missing block size" << std::endl;
+//        return 1;
+//    }
     using namespace std::chrono;
 
-// frequencies
+    bool saveData = true;
+
+    // frequencies
 	const float fx = 0.3;
 	const float fy = 0.8;
 
@@ -59,19 +65,28 @@ int main(){
 	float xMin = 0, xMax = 512;
 	float yMin = 0, yMax = 512;
 
+	// save stuff & time
     std::ofstream save;
+    steady_clock::time_point t1;
+    steady_clock::time_point t2;
+    duration<double> dt;
+
 
 	// grid
-	const int rows = 2048;
-	const int cols = 2048;
+	const int rows = 1024;
+	const int cols = 1024;
 	const int size = rows * cols;
-	float *grid = new float[size];
+	std::complex<float> *grid = new std::complex<float>[size];
+	std::complex<float> *gridT = new std::complex<float>[size];
 	float xStep = (xMax - xMin) / (float) cols;
 	float yStep = (yMax - yMin) / (float) rows;
+    int B = 8;
+//    int B = atoi(argv[1]);
 
-	float xTemp;
+
+	// data gen
 	for(int i=0; i<rows; i++){
-		xTemp = xMin;
+		float xTemp = xMin;
 		for(int j=0; j<cols; j++){
 			grid[i * cols + j] = CosCos(xTemp, yMin, fx, fy);
 			xTemp += xStep;
@@ -79,85 +94,86 @@ int main(){
 		yMin += yStep;
 	}
 
-//	save.open("grid_open.csv");
-//	for(int i=0; i<rows; i++){
-//		for(int j=0; j<cols; j++){
-//			save << grid[i * cols + j];
-//			if(j != cols - 1){save << ", ";}
-//		}
-//		save << '\n';
-//	}
-//	save.close();
+	// data save
+	if (saveData){
+        save.open("dataOpen2.csv");
+        for(int i=0; i<rows; i++){
+            for(int j=0; j<cols; j++){
+                save << grid[i * cols + j].real();
+                if(j != cols - 1){save << ", ";}
+            }
+            save << std::endl;
+        }
+        save.close();
 
-	centerSpectrum(grid, rows, cols);
+        centerSpectrum(grid, rows, cols);
+	}
 
     // fft rows
-    std::complex<float> *fft = new std::complex<float>[size];
-
+    // ordering
     int lCols = log2(cols);
     int revCol[cols];
+    t1 = steady_clock::now();
+    #pragma omp parallel for
     for(int j=0; j<cols; j++){
         revCol[j] = revBitOrd(j, lCols);
     }
 
-    steady_clock::time_point start = steady_clock::now();
+    // actual fft
     #pragma omp parallel for
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
-            fft[i*cols + revCol[j]] = grid[i*cols + j];
+            gridT[i * cols + revCol[j]] = grid[i*cols + j];
         }
-        coolVec(&fft[i * cols], cols);
+        coolVec(&gridT[i * cols], cols);
     }
-    steady_clock::time_point stop = steady_clock::now();
-    duration<float> time_span = duration_cast<duration<float>>(stop - start);
-    std::cout << time_span.count() << std::endl;
 
-    // transpose  WARNINGGGGG
-    std::complex<float> *fft2 = new std::complex<float>[size];
-    transpose(fft, fft2, rows, cols);
 
     // fft cols
+    // revRowing is useless since it's a square matrix, but you never know...
     int lRows = log2(rows);
     int revRow[rows];
+    #pragma omp parallel for
     for(int i=0; i<rows; i++){
         revRow[i] = revBitOrd(i, lRows);
     }
 
-    start = steady_clock::now();
+    transpose(gridT, grid, rows, cols);
     #pragma omp parallel for
-    for(int j=0; j<cols; j++){
-        for(int i=0; i<rows; i++){
-            fft2[j*rows + revRow[i]] = fft[j*rows + i];
+    for(int i=0; i<rows; i++){
+        for(int j=0; j<cols; j++){
+            gridT[i*cols + revRow[j]] = grid[i*cols + j];
         }
-        coolVec(&fft2[j * rows], rows);
-    }
-    stop = steady_clock::now();
-    time_span = duration_cast<duration<float>>(stop - start);
-    std::cout << time_span.count() << std::endl;
-
-
-    // spectrum then log scale
-    float *specter = new float[size];
-    #pragma omp parallel for
-    for(int i=0; i<size; i++){
-        specter[i] = 5.f * log(1.f + abs(fft2[i]));
+        coolVec(&gridT[i * cols], cols);
     }
 
-//	save.open("fft_open.csv");
-//	for(int i=0; i<rows; i++){
-//		for(int j=0; j<cols; j++){
-//			save << specter[i * cols + j];
-//			if(j != cols - 1){save << ", ";}
-//		}
-//		save << '\n';
-//	}
-//	save.close();
+    transpose(gridT, grid, cols, rows, B);
+    t2 = steady_clock::now();
+    dt = duration_cast<duration<double>>(t2 - t1);
+    std::cout << "Time: " << dt.count() << std::endl;
 
+    if (saveData){
+        // spectrum then log scale
+        #pragma omp parallel for
+        for(int i=0; i<size; i++){
+            grid[i] = log(1.f + abs(grid[i]));
+        }
+
+        save.open("fftOpen2.csv");
+        for(int i=0; i<rows; i++){
+            for(int j=0; j<cols; j++){
+                save << grid[i * cols + j].real();
+                if(j != cols - 1){
+                    save << ", ";
+                }
+            }
+            save << std::endl;
+        }
+        save.close();
+    }
 
 	delete[] grid;
-	delete[] fft;
-	delete[] fft2;
-	delete[] specter;
+	delete[] gridT;
+
     return 0;
 }
-
