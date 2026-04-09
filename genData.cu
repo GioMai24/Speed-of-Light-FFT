@@ -1,10 +1,9 @@
 #include <iostream>
 #include <fstream>
-//#include <cuda/std/numbers>
-#include <numbers>
+#include <string>
+#include <cuda/std/numbers>
 #include <cmath>
-//#include <cuda/std/complex>
-#include <complex>
+#include <cuda/std/complex>
 #include <string>
 
 
@@ -12,8 +11,7 @@
  * The function
  */
 float CosCos(const float x, const float y, const float fx, const float fy){
-//	return cos(2 * cuda::std::numbers::pi * fx * x) * cos(2 * cuda::std::numbers::pi * fy * y);
-	return cos(2 * std::numbers::pi * fx * x) * cos(2 * std::numbers::pi * fy * y);
+	return cos(2 * cuda::std::numbers::pi * fx * x) * cos(2 * cuda::std::numbers::pi * fy * y);
 }
 
 
@@ -21,17 +19,20 @@ int main(int argc, char **argv){
 	/*
 	 * Change the following parameters.
 	 */ 
-	int rows=1024, cols=1024;
-	float fx=0.3, fy=0.8, xMax=512, yMax=512;
-	std::string name="data.bin";
+	std::string N;
+	std::cout << "N? " << std::endl;
+	std::cin >> N;
+	int rows = std::stoi(N);
+	int cols=rows;
+	float fx=0.3, fy=0.8, xMax=rows/2, yMax=rows/2;
+	std::string name="data/" + N + ".bin";
 
 	std::ofstream save;
 	float xTemp, yTemp=0;
 	const int size = rows * cols;
 	float xStep = xMax / (float) cols;
 	float yStep = yMax / (float) rows;
-//	cuda::std::complex<float> *arr = new cuda::std::complex<float>[size];
-	float *arr = new float[size];
+	cuda::std::complex<float> *arr = new cuda::std::complex<float>[size];
 
 	for(int i=0; i<rows; i++){
 		xTemp = 0;
@@ -43,8 +44,7 @@ int main(int argc, char **argv){
 	}
 
 	save.open(name, std::ios::binary);
-//	save.write(reinterpret_cast<char*> (arr), size * sizeof(cuda::std::complex<float>)/sizeof(char));
-	save.write(reinterpret_cast<char*> (arr), size * sizeof(float)/sizeof(char));
+	save.write(reinterpret_cast<char*> (arr), size * sizeof(cuda::std::complex<float>)/sizeof(char));
 	save.close();
 
 	delete[] arr;

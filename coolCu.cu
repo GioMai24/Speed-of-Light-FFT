@@ -7,14 +7,6 @@
 #include <chrono>
 #include "utils.h"
 
-namespace cst{
-    const float pi = cuda::std::numbers::pi;
-}
-
-__constant__ float dPi;
-
-
-// shared memory?
 __global__ void revBitOrdKer(cuda::std::complex<float> *in, cuda::std::complex<float> *out, const int cols){
     int xId = blockDim.x * blockIdx.x + threadIdx.x;
     int n = xId;
@@ -28,29 +20,57 @@ __global__ void revBitOrdKer(cuda::std::complex<float> *in, cuda::std::complex<f
     out[blockIdx.y * cols + rXId] = in[blockIdx.y * cols + xId];
 }
 
+/**
+ * <<<rows, cols>>> limited by max threads x block, and shared memory definition...
+ */
+__global__ void revBitShOrdKer(cuda::std::complex<float> *in, cuda::std::complex<float> *out, const int cols){
+    __shared__ cuda::std::complex<float> help[1024];  // Oh to maually change this... (cols)
+    help[threadIdx.x] = in[blockIdx.x * cols + threadIdx.x];
+    int xId = threadIdx.x;
+    int n = xId;
+    const int lCols = cuda::ilog2(cols);
+    int rXId = 0;
+    for(int i=0; i<lCols; i++){
+        rXId <<= 1;
+        rXId |= (n & 1);
+        n >>= 1;
+    }
+    __syncthreads();
+    out[blockIdx.x * cols + xId] = help[rXId];
+}
+
 
 /**
  * Set <<<(grid.x, rows), threads>>> where grid.x * threads = cols/2
  */
 __global__ void coolSubKer(cuda::std::complex<float> *res, const int m, const int cols){
     int xId = blockDim.x * blockIdx.x + threadIdx.x;
-    int j = xId % (m/2);
-    int k = (2 * xId / m) * m;
-    cuda::std::complex<float> w = pow(cuda::std::polar(1.f, -2 * dPi / (float) m), j);
+    int j = xId & ((m >> 1) - 1);  // modulo
+    int k = (2 * xId >> cuda::ilog2(m)) * m;
+    cuda::std::complex<float> w = cuda::std::polar(1.f, -2 * j * cuda::std::numbers::pi_v<float> / (float) m);
 
-    cuda::std::complex<float> t = w * res[k + j + m/2 + blockIdx.y * cols];
+    cuda::std::complex<float> t = w * res[k + j + (m >> 1) + blockIdx.y * cols];
     cuda::std::complex<float> u = res[k + j + blockIdx.y * cols];
     res[k + j + blockIdx.y * cols] = u + t;
-    res[k + j + m/2 + blockIdx.y * cols] = u - t;
+    res[k + j + (m >> 1) + blockIdx.y * cols] = u - t;
 }
 
 
-// definitely shared memory
+template<typename T>
+__global__ void sharedTransposeKer(T *in, T *out, const int cols){
+    __shared__ T helper[32][33];
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    helper[threadIdx.x][threadIdx.y] = in[row * cols + col];
+    __syncthreads();
+    out[(blockIdx.x * blockDim.x + threadIdx.y) * cols + (blockIdx.y * blockDim.y + threadIdx.x)] = helper[threadIdx.y][threadIdx.x];
+}
+
 template<typename T>
 __global__ void transposeKer(T *in, T *out, const int cols){
-    int row = blockIdx.x * blockDim.x + threadIdx.x;
-    int col = blockIdx.y * blockDim.y + threadIdx.y;
-    out[col * cols + row] = in[row * cols + col];
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    out[row * cols + col] = in[col * cols + row];
 }
 
 
@@ -58,17 +78,14 @@ __global__ void transposeKer(T *in, T *out, const int cols){
 int main(int argc, char **argv){
     using namespace std::chrono;
 
-    bool saveData = true;
-
 	// files
+    bool saveData = true;
     std::ifstream load;
     std::ofstream save;
 
     // cuda
     cudaStream_t stream;
     cudaStreamCreate(&stream);
-
-    cudaMemcpyToSymbolAsync(dPi, &cst::pi, sizeof(float), 0, cudaMemcpyHostToDevice, stream);
 
     cudaEvent_t cuT1, cuT2;
     cudaEventCreate(&cuT1);
@@ -77,63 +94,67 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 1024;
-	const int cols = 1024;
+	const int rows = 4096;
+	const int cols = rows;
 	const int size = rows * cols;
 	const int cuSize = size * sizeof(cuda::std::complex<float>);
-	cuda::std::complex<float> *grid = new cuda::std::complex<float>[size];
+    cuda::std::complex<float> *grid = nullptr;
 	cuda::std::complex<float> *Dgrid = nullptr;
 	cuda::std::complex<float> *DgridT = nullptr;
+	cudaMallocHost(&grid, cuSize, cudaHostAllocDefault);
+	cudaMalloc(&Dgrid, cuSize);
+	cudaMalloc(&DgridT, cuSize);
 
-	load.open("data/data.bin", std::ios::binary | std::ios::ate);
+
+	load.open("data/4096.bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
 	load.seekg(0);
 	load.read(reinterpret_cast<char *> (grid), nChar);
 	load.close();
-
-	cudaMalloc(&Dgrid, cuSize);
-	cudaMalloc(&DgridT, cuSize);
 
     if (saveData){
         centerSpectrum(grid, rows, cols);
     }
 	cudaMemcpyAsync(Dgrid, grid, cuSize, cudaMemcpyHostToDevice, stream);
 
-
     // fft rows
-    const int blockCols = 16;
-    const int threadsXBlock = cols / 2 / blockCols;
-    dim3 blocks(16, rows);
+//    const int blockCols = 16;
+//    const int threadsXBlock = cols / 2 / blockCols;
+    const int threadsXBlock = cols <= 1024 ? cols / 2 : 1024;
+    const int blockCols = cols / 2 / threadsXBlock;
+    dim3 blocks(blockCols, rows);
+    dim3 blocksR(blockCols*2, rows);
+    // only works for N >= 1024
+    dim3 blocksT(cols / 32, rows / 32);
+    dim3 threadsXBlockT(32, 32);
 
-    revBitOrdKer<<<blocks, threadsXBlock*2, 0, stream>>>(Dgrid, DgridT, cols);
 	cudaEventRecord(cuT1, stream);
-        cudaStreamSynchronize(stream);
+    revBitOrdKer<<<blocksR, threadsXBlock, 0, stream>>>(Dgrid, DgridT, cols);
     for(int s=1; s<=log2(cols); s++){
         int m = 1 << s;
         coolSubKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
-        cudaStreamSynchronize(stream);
     }
-    cudaEventRecord(cuT2, stream);
-	cudaEventSynchronize(cuT2);
-	cudaEventElapsedTime(&cuDt, cuT1, cuT2);
-	std::cout << "SubKer modulo: " << cuDt << std::endl;
-
 
     // fft cols (works because square matrix...)
-    transposeKer<<<blocks, threadsXBlock*2, 0, stream>>>(DgridT, Dgrid, cols);
-    revBitOrdKer<<<blocks, threadsXBlock*2, 0, stream>>>(Dgrid, DgridT, cols);
+    sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
+//    transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
+//    revBitShOrdKer<<<1024, 1024, 0, stream>>>(Dgrid, DgridT, cols);
+    revBitOrdKer<<<blocksR, threadsXBlock, 0, stream>>>(Dgrid, DgridT, cols);
     for(int s=1; s<=log2(cols); s++){
         int m = 1 << s;
         coolSubKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
     }
-    transposeKer<<<blocks, threadsXBlock*2, 0, stream>>>(DgridT, Dgrid, cols);
+    sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
+//    transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
+    cudaEventRecord(cuT2, stream);
     cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
     cudaStreamSynchronize(stream);
+
     // spectrum then log scale
     if (saveData){
         float *saveFft = new float[size];
         for(int i=0; i<size; i++){
-            saveFft[i] = log(1.f + abs(grid[i]));
+            saveFft[i] = log(1.f + hypotf(grid[i].real(), grid[i].imag()));
         }
 
         save.open("data/fftCu.bin", std::ios::binary);
@@ -143,12 +164,15 @@ int main(int argc, char **argv){
     }
 
 
-	delete[] grid;
+	cudaEventElapsedTime(&cuDt, cuT1, cuT2);
+	std::cout << "Time: " << cuDt << std::endl;
+
+	cudaFreeHost(grid);
 	cudaFree(Dgrid);
 	cudaFree(DgridT);
+    cudaEventDestroy(cuT1);
+    cudaEventDestroy(cuT2);
 	cudaStreamDestroy(stream);
-//    cudaEventDestroy(cuT1);
-//    cudaEventDestroy(cuT2);
 
     return 0;
 }
