@@ -17,3 +17,4 @@ if __name__ == "__main__":
     size = int(input("What's N? "))
     for img in sys.argv[1:]:
         displayImage(img, size)
+    plt.show()

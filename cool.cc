@@ -5,12 +5,10 @@
 #include <complex>
 #include <numbers>
 #include <chrono>
-#include <omp.h>
-#include "utilsMP.h"
+#include "utils.h"
 
 const std::complex<float> i(0,1);
 const float pi = std::numbers::pi;
-const int nThreads = std::atoi(getenv("OMP_NUM_THREADS"));
 
 
 /**
@@ -21,10 +19,11 @@ const int nThreads = std::atoi(getenv("OMP_NUM_THREADS"));
  */
 void coolVec(std::complex<float> *res, int N){
     int lN = log2(N);
-    std::complex<float> common = - 2 * pi * i;  // might have sign problem...
+//    std::complex<float> common = - 2 * pi * i;  // might have sign problem...
     for(int s=1; s<log2(N)+1; s++){
         int m = 1 << s;
-        std::complex<float> wm = exp(common / (float) m);
+//        std::complex<float> wm = exp(common / (float) m);
+        std::complex<float> wm = std::polar(1.f, -2 * std::numbers::pi_v<float> / (float) m);
         for(int k=0; k<N; k+=m){
             std::complex<float> w = 1;
             for(int j=0; j<m/2; j++){
@@ -47,9 +46,8 @@ int main(int argc, char **argv){
 //    }
     using namespace std::chrono;
 
-    bool saveData = false;
-
 	// save stuff & time
+    bool saveData = false;
     std::ifstream load;
     std::ofstream save;
     steady_clock::time_point t1;
@@ -72,62 +70,65 @@ int main(int argc, char **argv){
 	load.read(reinterpret_cast<char *> (grid), nChar);
 	load.close();
 
-    if (saveData){
+	if (saveData){
         centerSpectrum(grid, rows, cols);
-    }
+	}
 
     // fft rows
     // ordering
     int lCols = log2(cols);
     int revCol[cols];
-    t1 = steady_clock::now();
-    #pragma omp parallel for
     for(int j=0; j<cols; j++){
         revCol[j] = revBitOrd(j, lCols);
     }
 
     // actual fft
-    #pragma omp parallel for
+    t1 = steady_clock::now();
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             gridT[i * cols + revCol[j]] = grid[i*cols + j];
         }
         coolVec(&gridT[i * cols], cols);
     }
+    t2 = steady_clock::now();
+    dt = duration_cast<duration<double>>(t2 - t1);
+//    std::cout << "Rows computation: " << dt.count() << std::endl;
 
 
     // fft cols
     // revRowing is useless since it's a square matrix, but you never know...
     int lRows = log2(rows);
     int revRow[rows];
-    #pragma omp parallel for
     for(int i=0; i<rows; i++){
         revRow[i] = revBitOrd(i, lRows);
     }
 
+    t1 = steady_clock::now();
     transpose(gridT, grid, rows, cols, B);
-    #pragma omp parallel for
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             gridT[i*cols + revRow[j]] = grid[i*cols + j];
         }
         coolVec(&gridT[i * cols], cols);
     }
-
-    transpose(gridT, grid, cols, rows, B);
     t2 = steady_clock::now();
     dt = duration_cast<duration<double>>(t2 - t1);
-    std::cout << "Time: " << dt.count() << std::endl;
+//    std::cout << "transposed blocked " << B << " one arr: " << dt.count() << std::endl;
+
+    t1 = steady_clock::now();
+    transpose(gridT, grid, cols, rows, 8);
+    t2 = steady_clock::now();
+    dt = duration_cast<duration<double>>(t2 - t1);
+    std::cout << "blocked 8 " << dt.count() << std::endl;
 
     // spectrum then log scale
     if (saveData){
         float *saveFft = new float[size];
-        #pragma omp parallel for
         for(int i=0; i<size; i++){
             saveFft[i] = log(1.f + hypotf(grid[i].real(), grid[i].imag()));
         }
 
-        save.open("data/fftOmp.bin", std::ios::binary);
+        save.open("data/fftSer.bin", std::ios::binary);
         save.write(reinterpret_cast<char *> (saveFft), size*sizeof(float) / sizeof(char));
         save.close();
         delete[] saveFft;

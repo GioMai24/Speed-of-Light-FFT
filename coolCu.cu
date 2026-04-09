@@ -79,7 +79,7 @@ int main(int argc, char **argv){
     using namespace std::chrono;
 
 	// files
-    bool saveData = true;
+    bool saveData = false;
     std::ifstream load;
     std::ofstream save;
 
@@ -94,7 +94,7 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 4096;
+	const int rows = 16384;
 	const int cols = rows;
 	const int size = rows * cols;
 	const int cuSize = size * sizeof(cuda::std::complex<float>);
@@ -106,7 +106,7 @@ int main(int argc, char **argv){
 	cudaMalloc(&DgridT, cuSize);
 
 
-	load.open("data/4096.bin", std::ios::binary | std::ios::ate);
+	load.open("data/8192.bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
 	load.seekg(0);
 	load.read(reinterpret_cast<char *> (grid), nChar);
