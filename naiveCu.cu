@@ -40,7 +40,7 @@ __global__ void revBitShOrdKer(cuda::std::complex<float> *in, cuda::std::complex
 }
 
 
-__global__ void coOldKer(cuda::std::complex<float> *res, const int cols){
+__global__ void coolKer(cuda::std::complex<float> *res, const int cols){
     int tId = blockDim.x * blockIdx.x + threadIdx.x;
     for(int s=1; s<=cuda::ilog2(cols); s++){
         int m = 1 << s;
@@ -59,7 +59,7 @@ __global__ void coOldKer(cuda::std::complex<float> *res, const int cols){
 }
 
 
-__global__ void coolKer(cuda::std::complex<float> *res, const int cols){
+__global__ void coolKerV1(cuda::std::complex<float> *res, const int cols){
     int tId = blockDim.x * blockIdx.x + threadIdx.x;
     for(int s=1; s<=cuda::ilog2(cols); s++){
         int m = 1 << s;
@@ -115,7 +115,7 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 8192;
+	const int rows = 512;
 	const int cols = rows;
 	const int size = rows * cols;
 	const int cuSize = size * sizeof(cuda::std::complex<float>);
@@ -127,7 +127,7 @@ int main(int argc, char **argv){
 	cudaMalloc(&DgridT, cuSize);
 
 
-	load.open("data/8192.bin", std::ios::binary | std::ios::ate);
+	load.open("data/512.bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
 	load.seekg(0);
 	load.read(reinterpret_cast<char *> (grid), nChar);
@@ -139,7 +139,7 @@ int main(int argc, char **argv){
 	cudaMemcpyAsync(Dgrid, grid, cuSize, cudaMemcpyHostToDevice, stream);
 
     // fft rows
-    const int blocks = 128;
+    const int blocks = 32;
     const int threadsCool = rows / blocks;
 //    const int threadsCool = 1024;  // too few blocks
 //    const int blocks = rows / threadsCool;

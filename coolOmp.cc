@@ -58,7 +58,7 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 8192;
+	const int rows = 4096;
 	const int cols = rows;
 	const int size = rows * cols;
 	std::complex<float> *grid = new std::complex<float>[size];
@@ -66,7 +66,7 @@ int main(int argc, char **argv){
     int B = 8;
 //    int B = atoi(argv[1]);
 
-    load.open("data/8192.bin", std::ios::binary | std::ios::ate);
+    load.open("data/4096.bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
 	load.seekg(0);
 	load.read(reinterpret_cast<char *> (grid), nChar);

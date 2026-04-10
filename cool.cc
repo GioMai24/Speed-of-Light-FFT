@@ -7,9 +7,6 @@
 #include <chrono>
 #include "utils.h"
 
-const std::complex<float> i(0,1);
-const float pi = std::numbers::pi;
-
 
 /**
  * DFT using radix-2 Cooley-Tukey algorithm.
@@ -19,20 +16,36 @@ const float pi = std::numbers::pi;
  */
 void coolVec(std::complex<float> *res, int N){
     int lN = log2(N);
-//    std::complex<float> common = - 2 * pi * i;  // might have sign problem...
     for(int s=1; s<log2(N)+1; s++){
         int m = 1 << s;
-//        std::complex<float> wm = exp(common / (float) m);
         std::complex<float> wm = std::polar(1.f, -2 * std::numbers::pi_v<float> / (float) m);
         for(int k=0; k<N; k+=m){
             std::complex<float> w = 1;
-            for(int j=0; j<m/2; j++){
-                std::complex<float> t = w * res[k+j+m/2];
+            for(int j=0; j<(m >> 1); j++){
+                std::complex<float> t = w * res[k+j+(m >> 1)];
                 std::complex<float> u = res[k+j];
                 res[k+j] = u + t;
-                res[k+j+m/2] = u - t;
+                res[k+j+(m >> 1)] = u - t;
                 w *= wm;
             }
+        }
+    }
+}
+
+
+void coolDVec(std::complex<float> *res, int N){
+    int lN = log2(N);
+    for(int s=1; s<=lN; s++){
+        int m = 1 << s;
+        for(int l=0; l<(N >> 1); l++){
+            int j = l & ((m >> 1) - 1);  // modulo
+            int k = (2 * l >> (int)log2(m)) * m;
+            std::complex<float> w = std::polar(1.f, -2 * j * std::numbers::pi_v<float> / (float) m);
+
+            std::complex<float> t = w * res[k + j + (m >> 1)];
+            std::complex<float> u = res[k + j];
+            res[k + j] = u + t;
+            res[k + j + (m >> 1)] = u - t;
         }
     }
 }
@@ -56,7 +69,7 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 8192;
+	const int rows = 4096;
 	const int cols = rows;
 	const int size = rows * cols;
 	std::complex<float> *grid = new std::complex<float>[size];
@@ -64,7 +77,7 @@ int main(int argc, char **argv){
     int B = 8;
 //    int B = atoi(argv[1]);
 
-    load.open("data/8192.bin", std::ios::binary | std::ios::ate);
+    load.open("data/4096.bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
 	load.seekg(0);
 	load.read(reinterpret_cast<char *> (grid), nChar);
@@ -78,21 +91,18 @@ int main(int argc, char **argv){
     // ordering
     int lCols = log2(cols);
     int revCol[cols];
+    t1 = steady_clock::now();
     for(int j=0; j<cols; j++){
         revCol[j] = revBitOrd(j, lCols);
     }
 
     // actual fft
-    t1 = steady_clock::now();
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             gridT[i * cols + revCol[j]] = grid[i*cols + j];
         }
         coolVec(&gridT[i * cols], cols);
     }
-    t2 = steady_clock::now();
-    dt = duration_cast<duration<double>>(t2 - t1);
-//    std::cout << "Rows computation: " << dt.count() << std::endl;
 
 
     // fft cols
@@ -103,7 +113,6 @@ int main(int argc, char **argv){
         revRow[i] = revBitOrd(i, lRows);
     }
 
-    t1 = steady_clock::now();
     transpose(gridT, grid, rows, cols, B);
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
@@ -111,15 +120,11 @@ int main(int argc, char **argv){
         }
         coolVec(&gridT[i * cols], cols);
     }
-    t2 = steady_clock::now();
-    dt = duration_cast<duration<double>>(t2 - t1);
-//    std::cout << "transposed blocked " << B << " one arr: " << dt.count() << std::endl;
 
-    t1 = steady_clock::now();
     transpose(gridT, grid, cols, rows, 8);
     t2 = steady_clock::now();
     dt = duration_cast<duration<double>>(t2 - t1);
-    std::cout << "blocked 8 " << dt.count() << std::endl;
+    std::cout << "Serial: " << dt.count() << " s" << std::endl;
 
     // spectrum then log scale
     if (saveData){
