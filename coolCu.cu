@@ -94,10 +94,10 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 4096;
+	const int rows = 16384;
 	const int cols = rows;
-	const int size = rows * cols;
-	const int cuSize = size * sizeof(cuda::std::complex<float>);
+	const size_t size = rows * cols;
+	const size_t cuSize = size * sizeof(cuda::std::complex<float>);
     cuda::std::complex<float> *grid = nullptr;
 	cuda::std::complex<float> *Dgrid = nullptr;
 	cuda::std::complex<float> *DgridT = nullptr;
@@ -106,7 +106,7 @@ int main(int argc, char **argv){
 	cudaMalloc(&DgridT, cuSize);
 
 
-	load.open("data/4096.bin", std::ios::binary | std::ios::ate);
+	load.open("data/16384.bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
 	load.seekg(0);
 	load.read(reinterpret_cast<char *> (grid), nChar);

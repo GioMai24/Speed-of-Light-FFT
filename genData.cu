@@ -29,7 +29,7 @@ int main(int argc, char **argv){
 
 	std::ofstream save;
 	float xTemp, yTemp=0;
-	const int size = rows * cols;
+	const size_t size = rows * cols;
 	float xStep = xMax / (float) cols;
 	float yStep = yMax / (float) rows;
 	cuda::std::complex<float> *arr = new cuda::std::complex<float>[size];
