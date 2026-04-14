@@ -36,3 +36,15 @@ I must sleep. Good night
 Implemented cuFFT library. It runs in ~0.2 ms, which is 10 times faster than my raw cuda implementation.
 
 I'm kind of stuck in CUDA, shared memory seems usable only with the transpose kernel. Which is not event the slowest kernel. The main coolSubKer loop is the slowest, yet I cannot find a way to make it faster. Lest I change paradigm, which would be weird?
+
+## 13/04/2026
+I BLURRED A CAT! Implemented the IFFT and applied a random gaussian blurring just to do something in the frequency space...
+
+I read the cat from the jpazzini repo using the jpazzini read_pmg, then I coverted it in `.bin` format not to change my code too much, but I could make it better for sure. Possibly I could find a larger image, or implement the rectangular thingy. Both dimension should be power of 2 anyway. Shouldn't be too much of a fuss.
+
+I broke down trying to understand the speed up...
+
+## 14/04/2026
+How did I deal with the speed up understanding? I ignored it and moved on. Nothing really makes sense, but who cares? I don't know how and why, everything hurts me when I try to think about how and why, so I don't think about how and why, and I carry on trying stuff out.
+
+Inversion and blurring works. Hehehe cats. I even parallelized them both on omp and CUDA. Maybe the cuCode might be optimized... Somehow... I don't think so honestly, but who knows, my entire code might just be absolute garbage lol.
