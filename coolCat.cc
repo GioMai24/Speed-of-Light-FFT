@@ -1,4 +1,5 @@
 #include <iostream>
+#include <stdio.h>
 #include <fstream>
 #include <string>
 #include <cstring>
@@ -6,6 +7,7 @@
 #include <complex>
 #include <numbers>
 #include <chrono>
+#include <cstdint>
 #include "utils.h"
 
 
@@ -35,7 +37,8 @@ void coolVec(std::complex<float> *res, int N){
 
 
 void coolDVec(std::complex<float> *res, int N){
-    for(int s=1; s<=log2(N); s++){
+    int lN = log2(N);
+    for(int s=1; s<=lN; s++){
         int m = 1 << s;
         for(int l=0; l<(N >> 1); l++){
             int j = l & ((m >> 1) - 1);  // modulo
@@ -86,26 +89,41 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 512;
+	const int rows = 1024;
 	const int cols = rows;
 	const size_t size = rows * cols;
-	std::complex<float> *original = new std::complex<float>[size];
+	uint8_t *img = new uint8_t[512*512];
+
 	std::complex<float> *grid = new std::complex<float>[size];
+	std::complex<float> *original = new std::complex<float>[size];
 	std::complex<float> *gridT = new std::complex<float>[size];
+
+	load.open("data/cats/cat512.bin", std::ios::binary | std::ios::ate);
+	std::streamsize nChar = load.tellg();
+	load.seekg(0);
+	load.read(reinterpret_cast<char *> (img), nChar);
+	load.close();
+
     int B = 8;
 //    int B = atoi(argv[1]);
 
-    load.open("data/512.bin", std::ios::binary | std::ios::ate);
-	std::streamsize nChar = load.tellg();
-	load.seekg(0);
-	load.read(reinterpret_cast<char *> (grid), nChar);
-	load.close();
+    // TRANSLATE IN COMPLEX + PADDING
+    for (int i=0; i<rows; i++){
+        for (int j=0; j<cols; j++){
+            grid[i * cols + j] = (i < 512 && j < 512) ? img[i * 512 + j] : 0;
+//            grid[i * cols + j] = img[i * 512 + j];
+        }
+    }
 
+    delete[] img;
 
-    centerSpectrum(grid, rows, cols);
+	if (saveData){
+        centerSpectrum(grid, rows, cols);
+	}
 	memcpy(original, grid, size * sizeof(std::complex<float>));
 
     // fft rows
+    // ordering
     int lCols = log2(cols);
     int revCol[cols];
     t1 = steady_clock::now();
@@ -113,6 +131,7 @@ int main(int argc, char **argv){
         revCol[j] = revBitOrd(j, lCols);
     }
 
+    // actual fft
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             gridT[i * cols + revCol[j]] = grid[i*cols + j];
@@ -122,6 +141,7 @@ int main(int argc, char **argv){
 
 
     // fft cols
+    // revRowing is useless since it's a square matrix, but you never know...
     int lRows = log2(rows);
     int revRow[rows];
     for(int i=0; i<rows; i++){
@@ -141,6 +161,17 @@ int main(int argc, char **argv){
     dt = duration_cast<duration<double>>(t2 - t1);
     std::cout << "Serial: " << dt.count() << " s" << std::endl;
 
+
+    float *saveFft = new float[size];
+    for(int i=0; i<size; i++){
+        saveFft[i] = log(1.f + hypotf(grid[i].real(), grid[i].imag()));
+    }
+    save.open("data/cats/out/furiousCat.bin", std::ios::binary);
+    save.write(reinterpret_cast<char *> (saveFft), size*sizeof(float) / sizeof(char));
+    save.close();
+    delete[] saveFft;
+
+
     // GAUSSIAN FILTERING
     for (int i=0; i<rows; i++){
         int x = i - (rows >> 1);
@@ -151,7 +182,7 @@ int main(int argc, char **argv){
     }
 
     // INVERSE
-    float iCols = 1.f / (float) size;
+    float iN = 1.f / (float) size;
 
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
@@ -169,7 +200,7 @@ int main(int argc, char **argv){
         cevLooc(&gridT[i * cols], cols);
     }
     for (int i=0; i<size; i++){
-        gridT[i] *= iCols;
+        gridT[i] *= iN;
     }
     transpose(grid, gridT, rows, cols, B);
 
@@ -180,19 +211,24 @@ int main(int argc, char **argv){
     }
     std::cout << "Total difference: " << diff << std::endl;
 
-    // spectrum then log scale//    for (int i=0; i<size; i++){
+    // spectrum then log scale
 
     if (saveData){
-//        float *saveFft = new float[size];
-//        for(int i=0; i<size; i++){
-//            saveFft[i] = log(1.f + hypotf(grid[i].real(), grid[i].imag()));
-//            saveFft[i] = grid[i];
-//        }
+        float *saveFft = new float[512*512];
+        // log specter...
+        for(int i=0; i<512; i++){
+            for(int j=0; j<512; j++){
+//                saveFft[i] = log(1.f + hypotf(grid[i].real(), grid[i].imag()));  // log specter
+                saveFft[i*512+j] = hypotf(grid[i*cols+j].real(), grid[i*cols+j].imag());  // plain spectrum
+//                saveFft[i] = grid[i].real();  // real part
+            }
+        }
 
-        save.open("data/fftSer.bin", std::ios::binary);
-        save.write(reinterpret_cast<char *> (grid), size*sizeof(std::complex<float>) / sizeof(char));
+        save.open("data/cats/out/blurCat.bin", std::ios::binary);
+        save.write(reinterpret_cast<char *> (saveFft), 512*512*sizeof(float) / sizeof(char));
         save.close();
-//        delete[] saveFft;
+
+        delete[] saveFft;
     }
 
 	delete[] grid;
