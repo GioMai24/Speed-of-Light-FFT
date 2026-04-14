@@ -4,6 +4,7 @@ import sys
 
 if __name__=="__main__":
     if len(sys.argv) != 3: raise RuntimeError("I need two files dude!")
-    ser = np.loadtxt(sys.argv[1], delimiter=',')
-    omp = np.loadtxt(sys.argv[2], delimiter=',')
-    print(np.allclose(ser, omp))
+    arr1 = np.fromfile(sys.argv[1], dtype="float32")
+    arr2 = np.fromfile(sys.argv[2], dtype="float32")
+    print(np.allclose(arr1, arr2))
+    print(np.sum(arr1-arr2))

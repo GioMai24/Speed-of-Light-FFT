@@ -17,7 +17,7 @@ void printArray(T *arr, const int rows, const int cols){
  */
 template<typename T>
 void transpose(T *src, T *dst, const int rows, const int cols) {
-    #pragma omp parallel for
+    #pragma omp for
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             dst[i*cols + j] = src[j*rows + i];
@@ -31,6 +31,7 @@ void transpose(T *src, T *dst, const int rows, const int cols) {
  */
 template<typename T>
 void transpose(T *src, const int rows, const int cols) {
+    #pragma omp for
     for(int i=0; i<rows; i++){
         for(int j=i+1; j<cols; j++){
             T temp = src[i*cols + j];
@@ -46,7 +47,7 @@ void transpose(T *src, const int rows, const int cols) {
  */
 template<typename T>
 void transpose(T *src, T *dst, const int rows, const int cols, const int B) {
-    #pragma omp parallel for
+    #pragma omp for
     for(int ii=0; ii<rows; ii+=B){
         for(int jj=0; jj<cols; jj+=B){
             for(int i=ii; i<ii+B; i++){

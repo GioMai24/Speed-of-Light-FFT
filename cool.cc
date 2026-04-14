@@ -1,4 +1,4 @@
-#include <iostream>
+ #include <iostream>
 #include <fstream>
 #include <string>
 #include <cstring>
@@ -77,11 +77,10 @@ int main(int argc, char **argv){
     using namespace std::chrono;
 
 	// save stuff & time
-    bool saveData = true;
+    bool saveData = false;
     std::ifstream load;
     std::ofstream save;
-    steady_clock::time_point t1;
-    steady_clock::time_point t2;
+    steady_clock::time_point t1, t2;
     duration<double> dt;
 
 
@@ -94,6 +93,9 @@ int main(int argc, char **argv){
 	std::complex<float> *gridT = new std::complex<float>[size];
     int B = 8;
 //    int B = atoi(argv[1]);
+    int lCols = log2(cols), lRows = log2(rows);
+    int revCol[cols], revRow[rows];
+    float iN = 1.f / (float) size;
 
     load.open("data/512.bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
@@ -106,8 +108,6 @@ int main(int argc, char **argv){
 	memcpy(original, grid, size * sizeof(std::complex<float>));
 
     // fft rows
-    int lCols = log2(cols);
-    int revCol[cols];
     t1 = steady_clock::now();
     for(int j=0; j<cols; j++){
         revCol[j] = revBitOrd(j, lCols);
@@ -121,9 +121,8 @@ int main(int argc, char **argv){
     }
 
 
+
     // fft cols
-    int lRows = log2(rows);
-    int revRow[rows];
     for(int i=0; i<rows; i++){
         revRow[i] = revBitOrd(i, lRows);
     }
@@ -151,8 +150,6 @@ int main(int argc, char **argv){
     }
 
     // INVERSE
-    float iCols = 1.f / (float) size;
-
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             gridT[i * cols + revCol[j]] = grid[i*cols + j];
@@ -169,7 +166,7 @@ int main(int argc, char **argv){
         cevLooc(&gridT[i * cols], cols);
     }
     for (int i=0; i<size; i++){
-        gridT[i] *= iCols;
+        gridT[i] *= iN;
     }
     transpose(grid, gridT, rows, cols, B);
 
