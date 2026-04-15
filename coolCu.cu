@@ -107,7 +107,7 @@ int main(int argc, char **argv){
     using namespace std::chrono;
 
 	// files
-    bool saveData = false;
+    bool saveData = true;
     std::ifstream load;
     std::ofstream save;
 
@@ -122,10 +122,11 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 8192;
+	const int rows = 2048;
 	const int cols = rows;
 	const size_t size = rows * cols;
 	const size_t cuSize = size * sizeof(cuda::std::complex<float>);
+//	uint8_t *img = new uint8_t[size];
     cuda::std::complex<float> *grid = nullptr;
 	cuda::std::complex<float> *Dgrid = nullptr;
 	cuda::std::complex<float> *DgridT = nullptr;
@@ -134,11 +135,22 @@ int main(int argc, char **argv){
 	cudaMalloc(&DgridT, cuSize);
 
 
-	load.open("data/8192.bin", std::ios::binary | std::ios::ate);
+	load.open("data/cats/cut4K.bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
 	load.seekg(0);
 	load.read(reinterpret_cast<char *> (grid), nChar);
 	load.close();
+
+	    // TRANSLATE IN COMPLEX + PADDING
+//    for (int i=0; i<rows; i++){
+//        for (int j=0; j<cols; j++){
+//            grid[i * cols + j] = (i < 512 && j < 512) ? img[i * 512 + j] : 0;
+//            grid[i * cols + j] = img[i * cols + j];
+//        }
+//    }
+
+//	delete[] img;
+
 
     centerSpectrum(grid, rows, cols);
 	cudaMemcpyAsync(Dgrid, grid, cuSize, cudaMemcpyHostToDevice, stream);
@@ -174,7 +186,7 @@ int main(int argc, char **argv){
 //    transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
 
     // GAUSSIAN BLUR
-    gaussKer<<<blocksT, threadsXBlockT, 0, stream>>>(Dgrid, cols, rows, 250);
+    gaussKer<<<blocksT, threadsXBlockT, 0, stream>>>(Dgrid, cols, rows, 50);
 
     // INVERSE
     revBitOrdKer<<<blocksR, threadsXBlock, 0, stream>>>(Dgrid, DgridT, cols);

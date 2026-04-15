@@ -4,16 +4,16 @@ import numpy as np
 import sys
 
 
-def displayImage(image):
-    arr = np.fromfile(image, dtype="float32")
-#    arr = np.fromfile(image, dtype="complex64")
-#    arr = np.fromfile(image, dtype="uint8")
+def displayImage(image, dtype="float32"):
+    '''
+    dtype could be "float32", "complex64", "uint8"
+    '''
+    arr = np.fromfile(image, dtype=dtype)
     arr = arr.reshape(-1, np.sqrt(len(arr)).astype(int)).real
     fig, ax = plt.subplots(figsize=(5,5), layout="constrained")
-#    im = ax.imshow(arr, cmap='gray', vmin=0)
     im = ax.imshow(arr, cmap='gray')
     fig.colorbar(im)
-    return im
+    return arr
 
 
 if __name__ == "__main__":
