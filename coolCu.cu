@@ -137,14 +137,10 @@ int main(int argc, char **argv){
 	const size_t cuSize = size * sizeof(cuda::std::complex<float>);
 //	uint8_t *img = new uint8_t[size];
     cuda::std::complex<float> *grid = nullptr;
-    cuda::std::complex<float> *grid2 = nullptr;
 	cuda::std::complex<float> *Dgrid = nullptr;
-	cuda::std::complex<float> *Dgrid2 = nullptr;
 	cuda::std::complex<float> *DgridT = nullptr;
 	cudaMallocHost(&grid, cuSize, cudaHostAllocDefault);
-	cudaMallocHost(&grid2, cuSize, cudaHostAllocDefault);
 	cudaMalloc(&Dgrid, cuSize);
-	cudaMalloc(&Dgrid2, cuSize);
 	cudaMalloc(&DgridT, cuSize);
 
 
@@ -198,10 +194,8 @@ int main(int argc, char **argv){
     sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
 //    transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
 
-    cudaMemcpyAsync(Dgrid2, Dgrid, cuSize, cudaMemcpyDeviceToDevice, stream);
     // GAUSSIAN BLUR
     gaussKer<<<blocksT, threadsXBlockT, 0, stream>>>(Dgrid, cols, rows, 30.f);
-    gaussKer<<<blocksT, threadsXBlockT, 0, stream>>>(Dgrid2, cols, rows, 25.9f);
 
     // INVERSE
     revBitOrdKer<<<blocksR, threadsXBlock, 0, stream>>>(Dgrid, DgridT, cols);
@@ -218,39 +212,10 @@ int main(int argc, char **argv){
     }
     sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
     mulKer<<<blocksT, threadsXBlockT, 0, stream>>>(Dgrid, cols, 1.f / (float) size);
-    cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
-
-    // INVERSE 2
-    revBitOrdKer<<<blocksR, threadsXBlock, 0, stream>>>(Dgrid2, DgridT, cols);
-    for(int s=1; s<=log2(cols); s++){
-        int m = 1 << s;
-        busLoocKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
-    }
-
-    sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid2, cols);
-    revBitOrdKer<<<blocksR, threadsXBlock, 0, stream>>>(Dgrid2, DgridT, cols);
-    for(int s=1; s<=log2(cols); s++){
-        int m = 1 << s;
-        busLoocKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
-    }
-    sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid2, cols);
-    mulKer<<<blocksT, threadsXBlockT, 0, stream>>>(Dgrid2, cols, 1.f / (float) size);
-    cudaMemcpyAsync(grid2, Dgrid2, cuSize, cudaMemcpyDeviceToHost, stream);
-
-//    subKer<<<blocksT, threadsXBlockT, 0, stream>>>(Dgrid, Dgrid2, cols);
-
 
     cudaEventRecord(cuT2, stream);
-//    cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
+    cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
     cudaStreamSynchronize(stream);
-
-    for(int i=0; i<rows; i++){
-		for(int j=0; j<cols; j++){
-//			grid2[i * cols + j] = grid2[i * cols +j].real() * pow(-1, i+j);
-			cuda::std::complex<float> t = (float)grid2[i * cols +j].real() * pow(-1, i+j);
-			grid[i * cols + j] = (float) (grid[i * cols +j].real() * pow(-1, i+j)) - t;
-		}
-	}
 
 //    centerSpectrum(grid, rows, cols);  // put complex back lol
     // spectrum then log scale
@@ -262,7 +227,7 @@ int main(int argc, char **argv){
 //            saveFft[i] = hypotf(grid[i].real(), grid[i].imag());
             saveFft[i] = grid[i].real();  // real part use this I guess
         }
-//        centerSpectrum(saveFft, rows, cols);
+        centerSpectrum(saveFft, rows, cols);
         // COMPLEX CASE
 //        std::complex<float> *saveFft = new std::complex<float>[size];
 //        for(int i=0; i<size; i++){
@@ -282,9 +247,7 @@ int main(int argc, char **argv){
 	std::cout << "Time: " << cuDt << std::endl;
 
 	cudaFreeHost(grid);
-	cudaFreeHost(grid2);
 	cudaFree(Dgrid);
-	cudaFree(Dgrid2);
 	cudaFree(DgridT);
     cudaEventDestroy(cuT1);
     cudaEventDestroy(cuT2);
