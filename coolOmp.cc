@@ -5,7 +5,6 @@
 #include <complex>
 #include <numbers>
 #include <chrono>
-#include <omp.h>
 #include "utilsMP.h"
 
 /**
@@ -49,10 +48,10 @@ void cevLooc(std::complex<float> *res, int N){
 }
 
 int main(int argc, char **argv){
-//    if (argc==1){
-//        std::cout << "Missing block size" << std::endl;
-//        return 1;
-//    }
+    if (argc != 2){
+        std::cout << "Something's off dude..." << std::endl;
+        return 1;
+    }
     using namespace std::chrono;
 
     bool saveData = false;
@@ -61,22 +60,24 @@ int main(int argc, char **argv){
     std::ifstream load;
     std::ofstream save;
     steady_clock::time_point t1, t2;
-    duration<double> dt;
+    duration<double> dtRev, dtFftStat, dtFftDyn, dtT, dtGauss, dtIfft;
 
 
 	// grid (unfortunate notation for data vs cuGrid...)
-	const int rows = 8192;
+	std::string sRows = argv[1];
+	const int rows = std::stoi(sRows);
 	const int cols = rows;
 	const size_t size = rows * cols;
 	std::complex<float> *grid = new std::complex<float>[size];
 	std::complex<float> *gridT = new std::complex<float>[size];
-    int B = 32;
-//    int B = atoi(argv[1]);
+    int B = 64;
     int lCols = log2(cols), lRows=log2(rows);
     int revCol[cols], revRow[rows];
-    float iN = 1.f / (float) size;
+    float rN = 1.f / (float) size;
+    float rS = 1.f / (2 * 80 * 80);
 
-    load.open("data/8192.bin", std::ios::binary | std::ios::ate);
+    load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
+//    load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
 	load.seekg(0);
 	load.read(reinterpret_cast<char *> (grid), nChar);
@@ -84,55 +85,80 @@ int main(int argc, char **argv){
 
     centerSpectrum(grid, rows, cols);
 
-    // fft rows
-    // ordering
     t1 = steady_clock::now();
     #pragma omp parallel
     {
+        // FFT ROWS
         #pragma omp for
         for(int j=0; j<cols; j++){
             revCol[j] = revBitOrd(j, lCols);
         }
+    }
+    t2 = steady_clock::now();
+    dtRev = duration_cast<duration<double>>(t2 - t1);
 
-        // actual fft
-        #pragma omp for
+    t1 = steady_clock::now();
+    #pragma omp parallel
+    {
+        #pragma omp for schedule(static, 1)
         for(int i=0; i<rows; i++){
             for(int j=0; j<cols; j++){
                 gridT[i * cols + revCol[j]] = grid[i*cols + j];
             }
             coolVec(&gridT[i * cols], cols);
         }
-
-
-        // fft cols
+// TO TIMEEEEEEE
+    }
+    t2 = steady_clock::now();
+    dtFftStat = duration_cast<duration<double>>(t2 - t1);
+    #pragma omp parallel
+    {
+        // FFT COLS
         #pragma omp for
         for(int i=0; i<rows; i++){
             revRow[i] = revBitOrd(i, lRows);
         }
+    }
+    t1 = steady_clock::now();
+    transpose(gridT, grid, rows, cols, B);
+    t2 = steady_clock::now();
+    dtT = duration_cast<duration<double>>(t2 - t1);
 
-        transpose(gridT, grid, rows, cols, B);
-
-        #pragma omp for
+    t1 = steady_clock::now();
+    #pragma omp parallel
+    {
+        #pragma omp for schedule(dynamic, 1)
         for(int i=0; i<rows; i++){
             for(int j=0; j<cols; j++){
                 gridT[i*cols + revRow[j]] = grid[i*cols + j];
             }
             coolVec(&gridT[i * cols], cols);
         }
+    }
+    t2 = steady_clock::now();
+    dtFftDyn = duration_cast<duration<double>>(t2 - t1);
+    transpose(gridT, grid, cols, rows, B);
 
-        transpose(gridT, grid, cols, rows, B);
-
+    t1 = steady_clock::now();
+    #pragma omp parallel
+    {
         // GAUSSIAN FILTERING
         #pragma omp for
         for (int i=0; i<rows; i++){
             int x = i - (rows >> 1);
             for (int j=0; j<cols; j++){
                 int y = j - (cols >> 1);
-                grid[i*cols + j] *= exp(- (float)(x*x + y*y) / (2 * 250 * 250));
+                grid[i*cols + j] *= exp(- (float)(x*x + y*y) * rS);
             }
         }
+    }
+// TO TIMEEEEEE
+    t2 = steady_clock::now();
+    dtGauss = duration_cast<duration<double>>(t2 - t1);
 
-        // IFFT
+    #pragma omp parallel
+    {
+        // IFFT ROWS
         #pragma omp for
         for(int i=0; i<rows; i++){
             for(int j=0; j<cols; j++){
@@ -140,9 +166,13 @@ int main(int argc, char **argv){
             }
             cevLooc(&gridT[i * cols], cols);
         }
+    }
+    // IFFT COLS
+    transpose(gridT, grid, rows, cols, B);
 
-        transpose(gridT, grid, rows, cols, B);
-
+    t1 = steady_clock::now();
+    #pragma omp parallel
+    {
         #pragma omp for
         for(int i=0; i<rows; i++){
             for(int j=0; j<cols; j++){
@@ -153,16 +183,31 @@ int main(int argc, char **argv){
 
         #pragma omp for
         for (int i=0; i<size; i++){
-            gridT[i] *= iN;
+            gridT[i] *= rN;
         }
-
-        transpose(gridT, grid, rows, cols, B);
     }
     t2 = steady_clock::now();
-    dt = duration_cast<duration<double>>(t2 - t1);
-    std::cout << "Time: " << dt.count() << std::endl;
+    dtIfft = duration_cast<duration<double>>(t2 - t1);
+    transpose(gridT, grid, rows, cols, B);
+
+//    t2 = steady_clock::now();
+//    dt = duration_cast<duration<double>>(t2 - t1);
+//    std::cout << dt.count() << std::endl;
     // spectrum then log scale
     centerSpectrum(grid, rows, cols);  // put complex back lol
+
+//    save.open("logs/OMP/N" + sRows + "Th" + std::getenv("OMP_NUM_THREADS") + "RevFftstatandDynTGaussIfft.txt", std::ios::app);
+    save.open("logs/OMP/RevFftstatandDynTGaussIfft.csv", std::ios::app);
+    save << std::getenv("OMP_NUM_THREADS") << ' '
+		<< sRows << ' '
+		<< dtRev.count() << ' '
+        << dtFftStat.count() << ' '
+        << dtFftDyn.count() << ' '
+        << dtT.count() << ' '
+        << dtGauss.count() << ' '
+        << dtIfft.count() << std::endl;
+    save.close();
+
     if (saveData){
         // REAL CASE, NOT FOR COMPLEX ORIGINAL IMAGE!!!!
         float *saveFft = new float[size];

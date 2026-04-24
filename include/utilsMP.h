@@ -1,5 +1,6 @@
 #ifndef UTILS_H
 #define UTILS_H
+#include <iostream>
 
 template<typename T>
 void printArray(T *arr, const int rows, const int cols){
@@ -17,7 +18,7 @@ void printArray(T *arr, const int rows, const int cols){
  */
 template<typename T>
 void transpose(T *src, T *dst, const int rows, const int cols) {
-    #pragma omp for
+    #pragma omp parallel for
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             dst[i*cols + j] = src[j*rows + i];
@@ -31,7 +32,7 @@ void transpose(T *src, T *dst, const int rows, const int cols) {
  */
 template<typename T>
 void transpose(T *src, const int rows, const int cols) {
-    #pragma omp for
+    #pragma omp parallel for
     for(int i=0; i<rows; i++){
         for(int j=i+1; j<cols; j++){
             T temp = src[i*cols + j];
@@ -47,7 +48,7 @@ void transpose(T *src, const int rows, const int cols) {
  */
 template<typename T>
 void transpose(T *src, T *dst, const int rows, const int cols, const int B) {
-    #pragma omp for
+    #pragma omp parallel for schedule(dynamic, 1)
     for(int ii=0; ii<rows; ii+=B){
         for(int jj=0; jj<cols; jj+=B){
             for(int i=ii; i<ii+B; i++){
@@ -81,6 +82,7 @@ int revBitOrd(int x, int lN){
  */
 template<typename T>
 void centerSpectrum(T *arr, const int rows, const int cols){
+    #pragma omp parallel for
     for(int i=0; i<rows; i++){
 		for(int j=0; j<cols; j++){
 			arr[i * cols + j] *= pow(-1, i+j);

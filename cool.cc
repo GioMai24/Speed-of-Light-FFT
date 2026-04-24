@@ -1,4 +1,4 @@
- #include <iostream>
+#include <iostream>
 #include <fstream>
 #include <string>
 #include <cstring>
@@ -77,7 +77,7 @@ int main(int argc, char **argv){
     using namespace std::chrono;
 
 	// save stuff & time
-    bool saveData = false;
+    bool saveData = true;
     std::ifstream load;
     std::ofstream save;
     steady_clock::time_point t1, t2;
@@ -85,10 +85,10 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 512;
+	const int rows = 8192;
 	const int cols = rows;
 	const size_t size = rows * cols;
-	std::complex<float> *original = new std::complex<float>[size];
+//	std::complex<float> *original = new std::complex<float>[size];
 	std::complex<float> *grid = new std::complex<float>[size];
 	std::complex<float> *gridT = new std::complex<float>[size];
     int B = 8;
@@ -97,7 +97,7 @@ int main(int argc, char **argv){
     int revCol[cols], revRow[rows];
     float iN = 1.f / (float) size;
 
-    load.open("data/512.bin", std::ios::binary | std::ios::ate);
+    load.open("data/8192.bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
 	load.seekg(0);
 	load.read(reinterpret_cast<char *> (grid), nChar);
@@ -105,7 +105,7 @@ int main(int argc, char **argv){
 
 
     centerSpectrum(grid, rows, cols);
-	memcpy(original, grid, size * sizeof(std::complex<float>));
+//	memcpy(original, grid, size * sizeof(std::complex<float>));
 
     // fft rows
     t1 = steady_clock::now();
@@ -138,16 +138,20 @@ int main(int argc, char **argv){
     transpose(grid, gridT, cols, rows, 8);
     t2 = steady_clock::now();
     dt = duration_cast<duration<double>>(t2 - t1);
-    std::cout << "Serial: " << dt.count() << " s" << std::endl;
+    std::cout << "FFT: " << dt.count() << " s" << std::endl;
 
     // GAUSSIAN FILTERING
+    t1 = steady_clock::now();
     for (int i=0; i<rows; i++){
         int x = i - (rows >> 1);
         for (int j=0; j<cols; j++){
             int y = j - (cols >> 1);
-            grid[i*cols + j] *= exp(- (float)(x*x + y*y) / (2 * 20 * 20));
+            grid[i*cols + j] *= exp(- (float)(x*x + y*y) / (2.f * 20 * 20));
         }
     }
+    t2 = steady_clock::now();
+    dt = duration_cast<duration<double>>(t2 - t1);
+    std::cout << "Blur: " << dt.count() << " s" << std::endl;
 
     // INVERSE
     for(int i=0; i<rows; i++){
@@ -171,11 +175,11 @@ int main(int argc, char **argv){
     transpose(grid, gridT, rows, cols, B);
 
 
-    std::complex<float> diff = 0;
-    for (int i=0; i<size; i++){
-        diff += original[i] - grid[i];
-    }
-    std::cout << "Total difference: " << diff << std::endl;
+//    std::complex<float> diff = 0;
+//    for (int i=0; i<size; i++){
+//        diff += original[i] - grid[i];
+//    }
+//    std::cout << "Total difference: " << diff << std::endl;
 
     // spectrum then log scale//    for (int i=0; i<size; i++){
 
@@ -193,7 +197,7 @@ int main(int argc, char **argv){
     }
 
 	delete[] grid;
-	delete[] original;
+//	delete[] original;
 	delete[] gridT;
 
     return 0;
