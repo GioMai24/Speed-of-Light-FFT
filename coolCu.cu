@@ -7,12 +7,19 @@
 #include <chrono>
 #include "utils.h"
 
+template<typename T>
+__global__ void centerKer(T *arr, const int rows, const int cols){
+    const int xId = blockDim.x * blockIdx.x + threadIdx.x;
+    const int yId = blockDim.y * blockIdx.y + threadIdx.y;
+    arr[yId * cols + xId] *=
+
+}
+
 __global__ void revBitOrdKer(cuda::std::complex<float> *in, cuda::std::complex<float> *out, const int cols){
     int xId = blockDim.x * blockIdx.x + threadIdx.x;
     int n = xId;
-    const int lCols = cuda::ilog2(cols);
     int rXId = 0;
-    for(int i=0; i<lCols; i++){
+    for(int i=0; i<cuda::ilog2(cols); i++){
         rXId <<= 1;
         rXId |= (n & 1);
         n >>= 1;
@@ -28,9 +35,8 @@ __global__ void revBitShOrdKer(cuda::std::complex<float> *in, cuda::std::complex
     help[threadIdx.x] = in[blockIdx.x * cols + threadIdx.x];
     int xId = threadIdx.x;
     int n = xId;
-    const int lCols = cuda::ilog2(cols);
     int rXId = 0;
-    for(int i=0; i<lCols; i++){
+    for(int i=0; i<cuda::ilog2(cols); i++){
         rXId <<= 1;
         rXId |= (n & 1);
         n >>= 1;
@@ -69,20 +75,20 @@ __global__ void busLoocKer(cuda::std::complex<float> *res, const int m, const in
 
 
 template<typename T>
-__global__ void gaussKer(T *res, const int cols, const int rows, const int s){
+__global__ void gaussKer(T *res, const int cols, const int rows, const float rS){
     const int xId = blockDim.x * blockIdx.x + threadIdx.x;
     const int yId = blockDim.y * blockIdx.y + threadIdx.y;
     const int x = xId - (cols >> 1);
     const int y = yId - (rows>> 1);
-    res[yId * cols + xId] *= cuda::std::exp(- (float)(x*x + y*y) / (2 * s*s));
+    res[yId * cols + xId] *= cuda::std::exp(- (float)(x*x + y*y) * rS);
 //    res[yId * cols + xId] *= cuda::std::exp(- (float)(x*x + y*y) * 2 * s*s * cuda::std::numbers::pi_v<float>*cuda::std::numbers::pi_v<float>);
 }
 
 template<typename T>
-__global__ void mulKer(T *res, const int cols, const float iN){
+__global__ void mulKer(T *res, const int cols, const float rN){
     const int xId = blockDim.x * blockIdx.x + threadIdx.x;
     const int yId = blockDim.y * blockIdx.y + threadIdx.y;
-    res[yId * cols + xId] *= iN;
+    res[yId * cols + xId] *= rN;
 }
 
 template<typename T>
@@ -113,10 +119,14 @@ __global__ void transposeKer(T *in, T *out, const int cols){
 
 
 int main(int argc, char **argv){
+    if (argc != 2){
+        std::cout << "Something's off dude..." << std::endl;
+        return 1;
+    }
     using namespace std::chrono;
 
 	// files
-    bool saveData = true;
+    const bool saveData = false;
     std::ifstream load;
     std::ofstream save;
 
@@ -131,7 +141,8 @@ int main(int argc, char **argv){
 
 
 	// grid
-	const int rows = 2048;
+	const std::string sRows = argv[1];
+	const int rows = std::stoi(sRows);
 	const int cols = rows;
 	const size_t size = rows * cols;
 	const size_t cuSize = size * sizeof(cuda::std::complex<float>);
@@ -139,12 +150,13 @@ int main(int argc, char **argv){
     cuda::std::complex<float> *grid = nullptr;
 	cuda::std::complex<float> *Dgrid = nullptr;
 	cuda::std::complex<float> *DgridT = nullptr;
+	cudaMallocAsync(&Dgrid, cuSize, stream);
+	cudaMallocAsync(&DgridT, cuSize, stream);
 	cudaMallocHost(&grid, cuSize, cudaHostAllocDefault);
-	cudaMalloc(&Dgrid, cuSize);
-	cudaMalloc(&DgridT, cuSize);
 
 
-	load.open("data/cats/cut4K.bin", std::ios::binary | std::ios::ate);
+	load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
+//	load.open("data/cats/cut4K.bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
 	load.seekg(0);
 	load.read(reinterpret_cast<char *> (grid), nChar);
@@ -167,12 +179,12 @@ int main(int argc, char **argv){
     // FFT ROWS
 //    const int blockCols = 16;
 //    const int threadsXBlock = cols / 2 / blockCols;
-    const int threadsXBlock = cols <= 1024 ? cols / 2 : 1024;
-    const int blockCols = cols / 2 / threadsXBlock;
+    const int threadsXBlock = cols <= 1024 ? (cols >> 1) : 1024;
+    const int blockCols = (cols >> 1) / threadsXBlock;
     dim3 blocks(blockCols, rows);
     dim3 blocksR(blockCols*2, rows);
     // only works for N >= 1024
-    dim3 blocksT(cols / 32, rows / 32);
+    dim3 blocksT(cols >> 5, rows >> 5);
     dim3 threadsXBlockT(32, 32);
 
 	cudaEventRecord(cuT1, stream);
@@ -195,7 +207,7 @@ int main(int argc, char **argv){
 //    transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
 
     // GAUSSIAN BLUR
-    gaussKer<<<blocksT, threadsXBlockT, 0, stream>>>(Dgrid, cols, rows, 30.f);
+    gaussKer<<<blocksT, threadsXBlockT, 0, stream>>>(Dgrid, cols, rows,  1.f / (2.f * 80.f * 80.f));
 
     // INVERSE
     revBitOrdKer<<<blocksR, threadsXBlock, 0, stream>>>(Dgrid, DgridT, cols);
@@ -246,11 +258,12 @@ int main(int argc, char **argv){
 	cudaEventElapsedTime(&cuDt, cuT1, cuT2);
 	std::cout << "Time: " << cuDt << std::endl;
 
-	cudaFreeHost(grid);
-	cudaFree(Dgrid);
-	cudaFree(DgridT);
+	cudaFreeAsync(Dgrid, stream);
+	cudaFreeAsync(DgridT, stream);
+	cudaFreeAsync(grid, stream);
     cudaEventDestroy(cuT1);
     cudaEventDestroy(cuT2);
+    cudaStreamSynchronize(stream);
 	cudaStreamDestroy(stream);
 
     return 0;

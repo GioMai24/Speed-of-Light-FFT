@@ -60,7 +60,7 @@ int main(int argc, char **argv){
     std::ifstream load;
     std::ofstream save;
     steady_clock::time_point t1, t2;
-    duration<double> dtCenter, dtRev, dtFftStat, dtFftDyn, dtT, dtGauss, dtIfft;
+    duration<double> dt;
 
 
 	// grid (unfortunate notation for data vs cuGrid...)
@@ -74,7 +74,7 @@ int main(int argc, char **argv){
     int lCols = log2(cols), lRows=log2(rows);
     int revCol[cols], revRow[rows];
     float rN = 1.f / (float) size;
-    float rS = 1.f / (2 * 80 * 80);
+    float rS = 1.f / (2.f * 80.f * 80.f);
 
     load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
 //    load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
@@ -83,12 +83,10 @@ int main(int argc, char **argv){
 	load.read(reinterpret_cast<char *> (grid), nChar);
 	load.close();
 
-    t1 = steady_clock::now();
-    centerSpectrum(grid, rows, cols);
-    t2 = steady_clock::now();
-    dtCenter = duration_cast<duration<double>>(t2 - t1);
 
     t1 = steady_clock::now();
+    centerSpectrum(grid, rows, cols);
+
     #pragma omp parallel
     {
         // FFT ROWS
@@ -96,13 +94,6 @@ int main(int argc, char **argv){
         for(int j=0; j<cols; j++){
             revCol[j] = revBitOrd(j, lCols);
         }
-    }
-    t2 = steady_clock::now();
-    dtRev = duration_cast<duration<double>>(t2 - t1);
-
-    t1 = steady_clock::now();
-    #pragma omp parallel
-    {
         #pragma omp for schedule(static, 1)
         for(int i=0; i<rows; i++){
             for(int j=0; j<cols; j++){
@@ -111,23 +102,14 @@ int main(int argc, char **argv){
             coolVec(&gridT[i * cols], cols);
         }
 // TO TIMEEEEEEE
-    }
-    t2 = steady_clock::now();
-    dtFftStat = duration_cast<duration<double>>(t2 - t1);
-    #pragma omp parallel
-    {
         // FFT COLS
         #pragma omp for
         for(int i=0; i<rows; i++){
             revRow[i] = revBitOrd(i, lRows);
         }
     }
-    t1 = steady_clock::now();
     transpose(gridT, grid, rows, cols, B);
-    t2 = steady_clock::now();
-    dtT = duration_cast<duration<double>>(t2 - t1);
 
-    t1 = steady_clock::now();
     #pragma omp parallel
     {
         #pragma omp for schedule(dynamic, 1)
@@ -138,11 +120,7 @@ int main(int argc, char **argv){
             coolVec(&gridT[i * cols], cols);
         }
     }
-    t2 = steady_clock::now();
-    dtFftDyn = duration_cast<duration<double>>(t2 - t1);
     transpose(gridT, grid, cols, rows, B);
-
-    t1 = steady_clock::now();
     #pragma omp parallel
     {
         // GAUSSIAN FILTERING
@@ -154,13 +132,7 @@ int main(int argc, char **argv){
                 grid[i*cols + j] *= exp(- (float)(x*x + y*y) * rS);
             }
         }
-    }
 // TO TIMEEEEEE
-    t2 = steady_clock::now();
-    dtGauss = duration_cast<duration<double>>(t2 - t1);
-
-    #pragma omp parallel
-    {
         // IFFT ROWS
         #pragma omp for
         for(int i=0; i<rows; i++){
@@ -173,7 +145,6 @@ int main(int argc, char **argv){
     // IFFT COLS
     transpose(gridT, grid, rows, cols, B);
 
-    t1 = steady_clock::now();
     #pragma omp parallel
     {
         #pragma omp for
@@ -189,27 +160,19 @@ int main(int argc, char **argv){
             gridT[i] *= rN;
         }
     }
-    t2 = steady_clock::now();
-    dtIfft = duration_cast<duration<double>>(t2 - t1);
     transpose(gridT, grid, rows, cols, B);
 
-//    t2 = steady_clock::now();
-//    dt = duration_cast<duration<double>>(t2 - t1);
-//    std::cout << dt.count() << std::endl;
+
     // spectrum then log scale
     centerSpectrum(grid, rows, cols);  // put complex back lol
+    t2 = steady_clock::now();
+    dt = duration_cast<duration<double>>(t2 - t1);
 
 //    save.open("logs/OMP/N" + sRows + "Th" + std::getenv("OMP_NUM_THREADS") + "RevFftstatandDynTGaussIfft.txt", std::ios::app);
-    save.open("logs/OMP/CenterRevFftstatandDynTGaussIfft.csv", std::ios::app);
+    save.open("logs/OMP/pipeline.csv", std::ios::app);
     save << std::getenv("OMP_NUM_THREADS") << ' '
 		<< sRows << ' '
-		<< dtCenter.count() << ' '
-		<< dtRev.count() << ' '
-        << dtFftStat.count() << ' '
-        << dtFftDyn.count() << ' '
-        << dtT.count() << ' '
-        << dtGauss.count() << ' '
-        << dtIfft.count() << std::endl;
+        << dt.count() << std::endl;
     save.close();
 
     if (saveData){

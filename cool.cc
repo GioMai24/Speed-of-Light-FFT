@@ -70,41 +70,46 @@ void cevLooc(std::complex<float> *res, int N){
 
 
 int main(int argc, char **argv){
-//    if (argc==1){
-//        std::cout << "Missing block size" << std::endl;
-//        return 1;
-//    }
+    if (argc != 2){
+        std::cout << "Something's off dude..." << std::endl;
+        return 1;
+    }
     using namespace std::chrono;
 
+    const bool saveData = false;
+
 	// save stuff & time
-    bool saveData = true;
     std::ifstream load;
     std::ofstream save;
     steady_clock::time_point t1, t2;
-    duration<double> dt;
+    duration<double> dtCenter, dtRev, dtFft, dtT, dtGauss, dtIfft;
 
 
 	// grid
-	const int rows = 8192;
+	const std::string sRows = argv[1];
+	const int rows = std::stoi(sRows);
 	const int cols = rows;
 	const size_t size = rows * cols;
 //	std::complex<float> *original = new std::complex<float>[size];
 	std::complex<float> *grid = new std::complex<float>[size];
 	std::complex<float> *gridT = new std::complex<float>[size];
-    int B = 8;
+    const int B = 8;
 //    int B = atoi(argv[1]);
-    int lCols = log2(cols), lRows = log2(rows);
+    const int lCols = log2(cols), lRows = log2(rows);
     int revCol[cols], revRow[rows];
-    float iN = 1.f / (float) size;
+    const float rN = 1.f / (float) size;
+    const float rS = 1.f / (2.f * 80.f * 80.f);
 
-    load.open("data/8192.bin", std::ios::binary | std::ios::ate);
+    load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
 	std::streamsize nChar = load.tellg();
 	load.seekg(0);
 	load.read(reinterpret_cast<char *> (grid), nChar);
 	load.close();
 
-
+    t1 = steady_clock::now();
     centerSpectrum(grid, rows, cols);
+    t2 = steady_clock::now();
+    dtCenter = duration_cast<duration<double>>(t2 - t1);
 //	memcpy(original, grid, size * sizeof(std::complex<float>));
 
     // fft rows
@@ -112,13 +117,19 @@ int main(int argc, char **argv){
     for(int j=0; j<cols; j++){
         revCol[j] = revBitOrd(j, lCols);
     }
+    t2 = steady_clock::now();
+    dtRev = duration_cast<duration<double>>(t2 - t1);
 
+
+    t1 = steady_clock::now();
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             gridT[i * cols + revCol[j]] = grid[i*cols + j];
         }
         coolVec(&gridT[i * cols], cols);
     }
+    t2 = steady_clock::now();
+    dtFft = duration_cast<duration<double>>(t2 - t1);
 
 
 
@@ -127,7 +138,11 @@ int main(int argc, char **argv){
         revRow[i] = revBitOrd(i, lRows);
     }
 
+    t1 = steady_clock::now();
     transpose(grid, gridT, rows, cols, B);
+    t2 = steady_clock::now();
+    dtT = duration_cast<duration<double>>(t2 - t1);
+
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             gridT[i*cols + revRow[j]] = grid[i*cols + j];
@@ -136,9 +151,6 @@ int main(int argc, char **argv){
     }
 
     transpose(grid, gridT, cols, rows, 8);
-    t2 = steady_clock::now();
-    dt = duration_cast<duration<double>>(t2 - t1);
-    std::cout << "FFT: " << dt.count() << " s" << std::endl;
 
     // GAUSSIAN FILTERING
     t1 = steady_clock::now();
@@ -146,12 +158,11 @@ int main(int argc, char **argv){
         int x = i - (rows >> 1);
         for (int j=0; j<cols; j++){
             int y = j - (cols >> 1);
-            grid[i*cols + j] *= exp(- (float)(x*x + y*y) / (2.f * 20 * 20));
+            grid[i*cols + j] *= exp(- (float)(x*x + y*y) * rS);
         }
     }
     t2 = steady_clock::now();
-    dt = duration_cast<duration<double>>(t2 - t1);
-    std::cout << "Blur: " << dt.count() << " s" << std::endl;
+    dtGauss = duration_cast<duration<double>>(t2 - t1);
 
     // INVERSE
     for(int i=0; i<rows; i++){
@@ -163,6 +174,8 @@ int main(int argc, char **argv){
 
     transpose(grid, gridT, rows, cols, B);
 
+
+    t1 = steady_clock::now();
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
             gridT[i*cols + revRow[j]] = grid[i*cols + j];
@@ -170,9 +183,25 @@ int main(int argc, char **argv){
         cevLooc(&gridT[i * cols], cols);
     }
     for (int i=0; i<size; i++){
-        gridT[i] *= iN;
+        gridT[i] *= rN;
     }
+    t2 = steady_clock::now();
+    dtIfft = duration_cast<duration<double>>(t2 - t1);
     transpose(grid, gridT, rows, cols, B);
+
+
+    centerSpectrum(grid, rows, cols);
+
+    save.open("logs/ser/centerRevFftTGaussIfft.csv", std::ios::app);
+    save << sRows << ' '
+        << dtCenter.count() << ' '
+        << dtRev.count() << ' '
+        << dtFft.count() << ' '
+        << dtT.count() << ' '
+        << dtGauss.count() << ' '
+        << dtIfft.count() << std::endl;
+    save.close();
+
 
 
 //    std::complex<float> diff = 0;
