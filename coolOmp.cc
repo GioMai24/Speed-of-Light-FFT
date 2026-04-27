@@ -60,7 +60,7 @@ int main(int argc, char **argv){
     std::ifstream load;
     std::ofstream save;
     steady_clock::time_point t1, t2;
-    duration<double> dtRev, dtFftStat, dtFftDyn, dtT, dtGauss, dtIfft;
+    duration<double> dtCenter, dtRev, dtFftStat, dtFftDyn, dtT, dtGauss, dtIfft;
 
 
 	// grid (unfortunate notation for data vs cuGrid...)
@@ -83,7 +83,10 @@ int main(int argc, char **argv){
 	load.read(reinterpret_cast<char *> (grid), nChar);
 	load.close();
 
+    t1 = steady_clock::now();
     centerSpectrum(grid, rows, cols);
+    t2 = steady_clock::now();
+    dtCenter = duration_cast<duration<double>>(t2 - t1);
 
     t1 = steady_clock::now();
     #pragma omp parallel
@@ -197,9 +200,10 @@ int main(int argc, char **argv){
     centerSpectrum(grid, rows, cols);  // put complex back lol
 
 //    save.open("logs/OMP/N" + sRows + "Th" + std::getenv("OMP_NUM_THREADS") + "RevFftstatandDynTGaussIfft.txt", std::ios::app);
-    save.open("logs/OMP/RevFftstatandDynTGaussIfft.csv", std::ios::app);
+    save.open("logs/OMP/CenterRevFftstatandDynTGaussIfft.csv", std::ios::app);
     save << std::getenv("OMP_NUM_THREADS") << ' '
 		<< sRows << ' '
+		<< dtCenter.count() << ' '
 		<< dtRev.count() << ' '
         << dtFftStat.count() << ' '
         << dtFftDyn.count() << ' '

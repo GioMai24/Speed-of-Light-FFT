@@ -11,7 +11,7 @@ do
 			if (($it % 10 == 0 || $it == 1))
 				then echo "threads:" $threads "- N:" $rows "- iteration:" $it
 			fi
-			echo $threads $rows $( (time ./bench.out $rows) 2>&1 ) >> logs/OMP/times.csv
+			echo $threads $rows $( (time ./bench.out $rows) 2>&1 ) >> logs/OMP/centerTimes.csv
 		done
 	done
 	echo ""
