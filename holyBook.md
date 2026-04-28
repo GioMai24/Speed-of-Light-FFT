@@ -48,3 +48,18 @@ I broke down trying to understand the speed up...
 How did I deal with the speed up understanding? I ignored it and moved on. Nothing really makes sense, but who cares? I don't know how and why, everything hurts me when I try to think about how and why, so I don't think about how and why, and I carry on trying stuff out.
 
 Inversion and blurring works. Hehehe cats. I even parallelized them both on omp and CUDA. Maybe the cuCode might be optimized... Somehow... I don't think so honestly, but who knows, my entire code might just be absolute garbage lol.
+
+## 28/04/2026
+Standard work and benchmarking, without many real breakthroughs...
+
+I think I got lost with my branches, and where to work. Final files might be scattered, but basically `inverse` branch is ahead of `devel`... Then I'm keeping `inverse.center` synched with `inverse` to perform single operation benchmarking in case of need. I don't think (hope) I will actually need it again.
+
+I updated the `centerSpectrum` function, and now is faster. I am also ultimately benchmarking the blur/IFFT implementation. This needed a `centerSpectrumKer` for the CUDA implementation. It was possibly avoidable, but we like centered spectra[^1].
+
+[^1]: if [we do not]; then we have a problem; fi.
+
+For the neat part: on 512x512 data ~0.400s of time is taken for some CPU-GPU overhead[^2]. I'm guessing we can find a similar overhead for larger data[^1]. The CPU data loading is basically negligible in terms of time, so we can calculate how many "images" we can elaborate with CPU vs GPU, after the overhead. Then the GPU will start to shine again[^3].
+
+[^2]: God knows why.
+
+[^3]: if [it does not]; then I am committing a cuMurder; fi.
