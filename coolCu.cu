@@ -5,14 +5,16 @@
 #include <cuda/std/complex>
 #include <cuda/std/numbers>
 #include <chrono>
-#include "utils.h"
+//#include "utils.h"
 
+/**
+ * Threads: (half cols, rows) needed.
+ */
 template<typename T>
-__global__ void centerKer(T *arr, const int rows, const int cols){
-    const int xId = blockDim.x * blockIdx.x + threadIdx.x;
+__global__ void centerKer(T *arr, const int cols){
     const int yId = blockDim.y * blockIdx.y + threadIdx.y;
-    arr[yId * cols + xId] *=
-
+    const int xId = (blockDim.x * blockIdx.x + threadIdx.x) * 2 + (yId & 1);
+    arr[yId * cols + xId] *= -1;
 }
 
 __global__ void revBitOrdKer(cuda::std::complex<float> *in, cuda::std::complex<float> *out, const int cols){
@@ -134,10 +136,10 @@ int main(int argc, char **argv){
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    cudaEvent_t cuT1, cuT2;
-    cudaEventCreate(&cuT1);
-    cudaEventCreate(&cuT2);
-    float cuDt;
+//    cudaEvent_t cuT1, cuT2;
+//    cudaEventCreate(&cuT1);
+//    cudaEventCreate(&cuT2);
+//    float cuDt;
 
 
 	// grid
@@ -146,23 +148,36 @@ int main(int argc, char **argv){
 	const int cols = rows;
 	const size_t size = rows * cols;
 	const size_t cuSize = size * sizeof(cuda::std::complex<float>);
+
 //	uint8_t *img = new uint8_t[size];
     cuda::std::complex<float> *grid = nullptr;
 	cuda::std::complex<float> *Dgrid = nullptr;
 	cuda::std::complex<float> *DgridT = nullptr;
+
 	cudaMallocAsync(&Dgrid, cuSize, stream);
 	cudaMallocAsync(&DgridT, cuSize, stream);
+
+	// cuGrid
+//    const int blockCols = 16;
+//    const int threadsXBlock = cols / 2 / blockCols;
+    const int threadsXBlock = cols <= 1024 ? (cols >> 1) : 1024;
+    const int blockCols = (cols >> 1) / threadsXBlock;
+    dim3 blocks(blockCols, rows);
+    dim3 blocksR(blockCols*2, rows);
+    dim3 threadsXBlockT(32, 32);
+    const int bColsT = cols >> 5, bRowsT = rows >> 5;
+    dim3 blocksT(bColsT, bRowsT);
+    dim3 blocksC(bColsT >> 1, bRowsT);
+
 	cudaMallocHost(&grid, cuSize, cudaHostAllocDefault);
+    load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
+//	load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
+    std::streamsize nChar = load.tellg();
+    load.seekg(0);
+    load.read(reinterpret_cast<char *> (grid), nChar);
+    load.close();
 
-
-	load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
-//	load.open("data/cats/cut4K.bin", std::ios::binary | std::ios::ate);
-	std::streamsize nChar = load.tellg();
-	load.seekg(0);
-	load.read(reinterpret_cast<char *> (grid), nChar);
-	load.close();
-
-	    // TRANSLATE IN COMPLEX + PADDING
+        // TRANSLATE IN COMPLEX + PADDING
 //    for (int i=0; i<rows; i++){
 //        for (int j=0; j<cols; j++){
 //            grid[i * cols + j] = (i < 512 && j < 512) ? img[i * 512 + j] : 0;
@@ -171,24 +186,14 @@ int main(int argc, char **argv){
 //    }
 
 //	delete[] img;
+    cudaMemcpyAsync(Dgrid, grid, cuSize, cudaMemcpyHostToDevice, stream);
 
-
-    centerSpectrum(grid, rows, cols);
-	cudaMemcpyAsync(Dgrid, grid, cuSize, cudaMemcpyHostToDevice, stream);
+    centerKer<<<blocksC, threadsXBlockT, 0, stream>>>(Dgrid, cols);
 
     // FFT ROWS
-//    const int blockCols = 16;
-//    const int threadsXBlock = cols / 2 / blockCols;
-    const int threadsXBlock = cols <= 1024 ? (cols >> 1) : 1024;
-    const int blockCols = (cols >> 1) / threadsXBlock;
-    dim3 blocks(blockCols, rows);
-    dim3 blocksR(blockCols*2, rows);
-    // only works for N >= 1024
-    dim3 blocksT(cols >> 5, rows >> 5);
-    dim3 threadsXBlockT(32, 32);
-
-	cudaEventRecord(cuT1, stream);
+//	cudaEventRecord(cuT1, stream);
     revBitOrdKer<<<blocksR, threadsXBlock, 0, stream>>>(Dgrid, DgridT, cols);
+//    revBitShOrdKer<<<1024, 1024, 0, stream>>>(Dgrid, DgridT, cols);
     for(int s=1; s<=log2(cols); s++){
         int m = 1 << s;
         coolSubKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
@@ -196,9 +201,9 @@ int main(int argc, char **argv){
 
     // FFT COLS (works because square matrix...)
     sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
-//    transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
-//    revBitShOrdKer<<<1024, 1024, 0, stream>>>(Dgrid, DgridT, cols);
+//   transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
     revBitOrdKer<<<blocksR, threadsXBlock, 0, stream>>>(Dgrid, DgridT, cols);
+//    revBitShOrdKer<<<1024, 1024, 0, stream>>>(Dgrid, DgridT, cols);
     for(int s=1; s<=log2(cols); s++){
         int m = 1 << s;
         coolSubKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
@@ -225,10 +230,10 @@ int main(int argc, char **argv){
     sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
     mulKer<<<blocksT, threadsXBlockT, 0, stream>>>(Dgrid, cols, 1.f / (float) size);
 
-    cudaEventRecord(cuT2, stream);
+//    cudaEventRecord(cuT2, stream);
+    centerKer<<<blocksC, threadsXBlockT, 0, stream>>>(Dgrid, cols);
     cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
     cudaStreamSynchronize(stream);
-
 //    centerSpectrum(grid, rows, cols);  // put complex back lol
     // spectrum then log scale
     if (saveData){
@@ -239,7 +244,7 @@ int main(int argc, char **argv){
 //            saveFft[i] = hypotf(grid[i].real(), grid[i].imag());
             saveFft[i] = grid[i].real();  // real part use this I guess
         }
-        centerSpectrum(saveFft, rows, cols);
+//        centerSpectrum(saveFft, rows, cols);
         // COMPLEX CASE
 //        std::complex<float> *saveFft = new std::complex<float>[size];
 //        for(int i=0; i<size; i++){
@@ -255,14 +260,14 @@ int main(int argc, char **argv){
 
 
 
-	cudaEventElapsedTime(&cuDt, cuT1, cuT2);
-	std::cout << "Time: " << cuDt << std::endl;
+//	cudaEventElapsedTime(&cuDt, cuT1, cuT2);
+//	std::cout << "Time: " << cuDt << std::endl;
 
 	cudaFreeAsync(Dgrid, stream);
 	cudaFreeAsync(DgridT, stream);
 	cudaFreeAsync(grid, stream);
-    cudaEventDestroy(cuT1);
-    cudaEventDestroy(cuT2);
+//    cudaEventDestroy(cuT1);
+//    cudaEventDestroy(cuT2);
     cudaStreamSynchronize(stream);
 	cudaStreamDestroy(stream);
 

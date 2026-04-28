@@ -79,8 +79,8 @@ int revBitOrd(int x, int lN){
 template<typename T>
 void centerSpectrum(T *arr, const int rows, const int cols){
     for(int i=0; i<rows; i++){
-		for(int j=0; j<cols; j++){
-			arr[i * cols + j] *= pow(-1, i+j);
+		for(int j=i & 1; j<cols; j+=2){
+			arr[i * cols + j] *= -1;
 		}
 	}
 }
