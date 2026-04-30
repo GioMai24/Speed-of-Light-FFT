@@ -170,8 +170,8 @@ int main(int argc, char **argv){
     dim3 blocksC(bColsT >> 1, bRowsT);
 
 	cudaMallocHost(&grid, cuSize, cudaHostAllocDefault);
-    load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
-//	load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
+//    load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
+	load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
     std::streamsize nChar = load.tellg();
     load.seekg(0);
     load.read(reinterpret_cast<char *> (grid), nChar);
