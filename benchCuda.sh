@@ -9,7 +9,7 @@ date
 #			echo -ne "N:" $rows "- iteration:" $it '\r'
 #			echo $rows $( (time ./bench.out $rows) 2>&1 ) >> logs/multImages/3Streams.csv
 			echo -ne "N:" 4096 "- iteration:" $it '\r'
-			echo 4096 $( (time ./bench.out 4096) 2>&1 ) >> logs/multImages/3Streams.csv
+			echo 4096 $( (time ./bench.out 4096) 2>&1 ) >> logs/multImages/2Streams.csv
 		done
 #done
 echo "I am done."
