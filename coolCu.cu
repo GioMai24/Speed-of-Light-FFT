@@ -130,10 +130,9 @@ int main(int argc, char **argv){
     std::ofstream save;
 
     // cuda
-    cudaStream_t stream, stream2, stream3;
+    cudaStream_t stream, stream2;
     cudaStreamCreate(&stream);
     cudaStreamCreate(&stream2);
-    cudaStreamCreate(&stream3);
 
 //    cudaEvent_t cuT1, cuT2;
 //    cudaEventCreate(&cuT1);
@@ -151,20 +150,15 @@ int main(int argc, char **argv){
 //	uint8_t *img = new uint8_t[size];
     cuda::std::complex<float> *grid = nullptr;
     cuda::std::complex<float> *grid2 = nullptr;
-    cuda::std::complex<float> *grid3 = nullptr;
 	cuda::std::complex<float> *Dgrid = nullptr;
 	cuda::std::complex<float> *Dgrid2 = nullptr;
-	cuda::std::complex<float> *Dgrid3 = nullptr;
 	cuda::std::complex<float> *DgridT = nullptr;
 	cuda::std::complex<float> *DgridT2 = nullptr;
-	cuda::std::complex<float> *DgridT3 = nullptr;
 
 	cudaMallocAsync(&Dgrid, cuSize, stream);
 	cudaMallocAsync(&Dgrid2, cuSize, stream2);
-	cudaMallocAsync(&Dgrid3, cuSize, stream3);
 	cudaMallocAsync(&DgridT, cuSize, stream);
 	cudaMallocAsync(&DgridT2, cuSize, stream2);
-	cudaMallocAsync(&DgridT3, cuSize, stream3);
 
 	// cuGrid
 //    const int blockCols = 16;
@@ -180,114 +174,87 @@ int main(int argc, char **argv){
 
 	cudaMallocHost(&grid, cuSize, cudaHostAllocDefault);
 	cudaMallocHost(&grid2, cuSize, cudaHostAllocDefault);
-	cudaMallocHost(&grid3, cuSize, cudaHostAllocDefault);
-    for (int counter=0; counter<34; counter++)
+    for (int counter=0; counter<50; counter++)
     {
         load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
-    //	load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
         std::streamsize nChar = load.tellg();
         load.seekg(0);
         load.read(reinterpret_cast<char *> (grid), nChar);
         load.close();
 
         load.open("data/" + sRows + "Return.bin", std::ios::binary | std::ios::ate);
-    //	load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
         std::streamsize nChar2 = load.tellg();
         load.seekg(0);
         load.read(reinterpret_cast<char *> (grid2), nChar2);
         load.close();
 
-        load.open("data/" + sRows + "Return3.bin", std::ios::binary | std::ios::ate);
-    //	load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
-        std::streamsize nChar3 = load.tellg();
-        load.seekg(0);
-        load.read(reinterpret_cast<char *> (grid3), nChar3);
-        load.close();
-
         cudaMemcpyAsync(Dgrid, grid, cuSize, cudaMemcpyHostToDevice, stream);
         cudaMemcpyAsync(Dgrid2, grid2, cuSize, cudaMemcpyHostToDevice, stream2);
-        cudaMemcpyAsync(Dgrid3, grid3, cuSize, cudaMemcpyHostToDevice, stream3);
 
         centerKer<<<blocksC, threadsXBlockT, 0, stream>>>(Dgrid, cols);
         centerKer<<<blocksC, threadsXBlockT, 0, stream2>>>(Dgrid2, cols);
-        centerKer<<<blocksC, threadsXBlockT, 0, stream3>>>(Dgrid3, cols);
 
         // FFT ROWS
     //	cudaEventRecord(cuT1, stream);
         revBitOrdKer<<<blocksR, threadsXBlock, 0, stream>>>(Dgrid, DgridT, cols);
         revBitOrdKer<<<blocksR, threadsXBlock, 0, stream2>>>(Dgrid2, DgridT2, cols);
-        revBitOrdKer<<<blocksR, threadsXBlock, 0, stream3>>>(Dgrid3, DgridT3, cols);
     //    revBitShOrdKer<<<1024, 1024, 0, stream>>>(Dgrid, DgridT, cols);
         for(int s=1; s<=log2(cols); s++){
             int m = 1 << s;
             coolSubKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
             coolSubKer<<<blocks, threadsXBlock, 0, stream2>>>(DgridT2, m, cols);
-            coolSubKer<<<blocks, threadsXBlock, 0, stream3>>>(DgridT3, m, cols);
         }
 
         // FFT COLS (works because square matrix...)
         sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
         sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream2>>>(DgridT2, Dgrid2, cols);
-        sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream3>>>(DgridT3, Dgrid3, cols);
     //   transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
         revBitOrdKer<<<blocksR, threadsXBlock, 0, stream>>>(Dgrid, DgridT, cols);
         revBitOrdKer<<<blocksR, threadsXBlock, 0, stream2>>>(Dgrid2, DgridT2, cols);
-        revBitOrdKer<<<blocksR, threadsXBlock, 0, stream3>>>(Dgrid3, DgridT3, cols);
     //    revBitShOrdKer<<<1024, 1024, 0, stream>>>(Dgrid, DgridT, cols);
         for(int s=1; s<=log2(cols); s++){
             int m = 1 << s;
             coolSubKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
             coolSubKer<<<blocks, threadsXBlock, 0, stream2>>>(DgridT2, m, cols);
-            coolSubKer<<<blocks, threadsXBlock, 0, stream3>>>(DgridT3, m, cols);
         }
         sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
         sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream2>>>(DgridT2, Dgrid2, cols);
-        sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream3>>>(DgridT3, Dgrid3, cols);
     //    transposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
 
         // GAUSSIAN BLUR
         gaussKer<<<blocksT, threadsXBlockT, 0, stream>>>(Dgrid, cols, rows,  1.f / (2.f * 80.f * 80.f));
         gaussKer<<<blocksT, threadsXBlockT, 0, stream2>>>(Dgrid2, cols, rows,  1.f / (2.f * 80.f * 80.f));
-        gaussKer<<<blocksT, threadsXBlockT, 0, stream3>>>(Dgrid3, cols, rows,  1.f / (2.f * 80.f * 80.f));
 
         // INVERSE
         revBitOrdKer<<<blocksR, threadsXBlock, 0, stream>>>(Dgrid, DgridT, cols);
         revBitOrdKer<<<blocksR, threadsXBlock, 0, stream2>>>(Dgrid2, DgridT2, cols);
-        revBitOrdKer<<<blocksR, threadsXBlock, 0, stream3>>>(Dgrid3, DgridT3, cols);
         for(int s=1; s<=log2(cols); s++){
             int m = 1 << s;
             busLoocKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
             busLoocKer<<<blocks, threadsXBlock, 0, stream2>>>(DgridT2, m, cols);
-            busLoocKer<<<blocks, threadsXBlock, 0, stream3>>>(DgridT3, m, cols);
         }
 
         sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
         sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream2>>>(DgridT2, Dgrid2, cols);
         revBitOrdKer<<<blocksR, threadsXBlock, 0, stream>>>(Dgrid, DgridT, cols);
         revBitOrdKer<<<blocksR, threadsXBlock, 0, stream2>>>(Dgrid2, DgridT2, cols);
-        revBitOrdKer<<<blocksR, threadsXBlock, 0, stream3>>>(Dgrid3, DgridT3, cols);
         for(int s=1; s<=log2(cols); s++){
             int m = 1 << s;
             busLoocKer<<<blocks, threadsXBlock, 0, stream>>>(DgridT, m, cols);
             busLoocKer<<<blocks, threadsXBlock, 0, stream2>>>(DgridT2, m, cols);
-            busLoocKer<<<blocks, threadsXBlock, 0, stream3>>>(DgridT3, m, cols);
         }
         sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream>>>(DgridT, Dgrid, cols);
         sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream2>>>(DgridT2, Dgrid2, cols);
-        sharedTransposeKer<<<blocksT, threadsXBlockT, 0, stream3>>>(DgridT3, Dgrid3, cols);
         mulKer<<<blocksT, threadsXBlockT, 0, stream>>>(Dgrid, cols, 1.f / (float) size);
         mulKer<<<blocksT, threadsXBlockT, 0, stream2>>>(Dgrid2, cols, 1.f / (float) size);
-        mulKer<<<blocksT, threadsXBlockT, 0, stream3>>>(Dgrid3, cols, 1.f / (float) size);
 
     //    cudaEventRecord(cuT2, stream);
         centerKer<<<blocksC, threadsXBlockT, 0, stream>>>(Dgrid, cols);
-        centerKer<<<blocksC, threadsXBlockT, 0, stream3>>>(Dgrid3, cols);
+        centerKer<<<blocksC, threadsXBlockT, 0, stream2>>>(Dgrid2, cols);
         cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
         cudaMemcpyAsync(grid2, Dgrid2, cuSize, cudaMemcpyDeviceToHost, stream2);
-        cudaMemcpyAsync(grid3, Dgrid3, cuSize, cudaMemcpyDeviceToHost, stream3);
         cudaStreamSynchronize(stream);
         cudaStreamSynchronize(stream2);
-        cudaStreamSynchronize(stream3);
     }
 //    centerSpectrum(grid, rows, cols);  // put complex back lol
     // spectrum then log scale
@@ -320,21 +287,16 @@ int main(int argc, char **argv){
 
 	cudaFreeAsync(Dgrid, stream);
 	cudaFreeAsync(Dgrid2, stream2);
-	cudaFreeAsync(Dgrid3, stream3);
 	cudaFreeAsync(DgridT, stream);
 	cudaFreeAsync(DgridT2, stream2);
-	cudaFreeAsync(DgridT3, stream3);
 	cudaFreeAsync(grid, stream);
 	cudaFreeAsync(grid2, stream2);
-	cudaFreeAsync(grid3, stream3);
 //    cudaEventDestroy(cuT1);
 //    cudaEventDestroy(cuT2);
     cudaStreamSynchronize(stream);
 	cudaStreamDestroy(stream);
     cudaStreamSynchronize(stream2);
 	cudaStreamDestroy(stream2);
-	cudaStreamSynchronize(stream3);
-	cudaStreamDestroy(stream3);
 
     return 0;
 }
