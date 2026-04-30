@@ -76,104 +76,107 @@ int main(int argc, char **argv){
     float rN = 1.f / (float) size;
     float rS = 1.f / (2.f * 80.f * 80.f);
 
-    load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
-//    load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
-	std::streamsize nChar = load.tellg();
-	load.seekg(0);
-	load.read(reinterpret_cast<char *> (grid), nChar);
-	load.close();
-
-
-    t1 = steady_clock::now();
-    centerSpectrum(grid, rows, cols);
-
-    #pragma omp parallel
+    for (int counter=0; counter<100; counter++)
     {
-        // FFT ROWS
-        #pragma omp for
-        for(int j=0; j<cols; j++){
-            revCol[j] = revBitOrd(j, lCols);
-        }
-        #pragma omp for schedule(static, 1)
-        for(int i=0; i<rows; i++){
+        load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
+    //    load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
+        std::streamsize nChar = load.tellg();
+        load.seekg(0);
+        load.read(reinterpret_cast<char *> (grid), nChar);
+        load.close();
+
+
+//        t1 = steady_clock::now();
+        centerSpectrum(grid, rows, cols);
+
+        #pragma omp parallel
+        {
+            // FFT ROWS
+            #pragma omp for
             for(int j=0; j<cols; j++){
-                gridT[i * cols + revCol[j]] = grid[i*cols + j];
+                revCol[j] = revBitOrd(j, lCols);
             }
-            coolVec(&gridT[i * cols], cols);
+            #pragma omp for schedule(static, 1)
+            for(int i=0; i<rows; i++){
+                for(int j=0; j<cols; j++){
+                    gridT[i * cols + revCol[j]] = grid[i*cols + j];
+                }
+                coolVec(&gridT[i * cols], cols);
+            }
+    // TO TIMEEEEEEE
+            // FFT COLS
+            #pragma omp for
+            for(int i=0; i<rows; i++){
+                revRow[i] = revBitOrd(i, lRows);
+            }
         }
-// TO TIMEEEEEEE
-        // FFT COLS
-        #pragma omp for
-        for(int i=0; i<rows; i++){
-            revRow[i] = revBitOrd(i, lRows);
+        transpose(gridT, grid, rows, cols, B);
+
+        #pragma omp parallel
+        {
+            #pragma omp for schedule(dynamic, 1)
+            for(int i=0; i<rows; i++){
+                for(int j=0; j<cols; j++){
+                    gridT[i*cols + revRow[j]] = grid[i*cols + j];
+                }
+                coolVec(&gridT[i * cols], cols);
+            }
         }
+        transpose(gridT, grid, cols, rows, B);
+        #pragma omp parallel
+        {
+            // GAUSSIAN FILTERING
+            #pragma omp for
+            for (int i=0; i<rows; i++){
+                int x = i - (rows >> 1);
+                for (int j=0; j<cols; j++){
+                    int y = j - (cols >> 1);
+                    grid[i*cols + j] *= exp(- (float)(x*x + y*y) * rS);
+                }
+            }
+    // TO TIMEEEEEE
+            // IFFT ROWS
+            #pragma omp for
+            for(int i=0; i<rows; i++){
+                for(int j=0; j<cols; j++){
+                    gridT[i * cols + revCol[j]] = grid[i*cols + j];
+                }
+                cevLooc(&gridT[i * cols], cols);
+            }
+        }
+        // IFFT COLS
+        transpose(gridT, grid, rows, cols, B);
+
+        #pragma omp parallel
+        {
+            #pragma omp for
+            for(int i=0; i<rows; i++){
+                for(int j=0; j<cols; j++){
+                    gridT[i*cols + revRow[j]] = grid[i*cols + j];
+                }
+                cevLooc(&gridT[i * cols], cols);
+            }
+
+            #pragma omp for
+            for (int i=0; i<size; i++){
+                gridT[i] *= rN;
+            }
+        }
+        transpose(gridT, grid, rows, cols, B);
+
+
+        // spectrum then log scale
+        centerSpectrum(grid, rows, cols);  // put complex back lol
     }
-    transpose(gridT, grid, rows, cols, B);
-
-    #pragma omp parallel
-    {
-        #pragma omp for schedule(dynamic, 1)
-        for(int i=0; i<rows; i++){
-            for(int j=0; j<cols; j++){
-                gridT[i*cols + revRow[j]] = grid[i*cols + j];
-            }
-            coolVec(&gridT[i * cols], cols);
-        }
-    }
-    transpose(gridT, grid, cols, rows, B);
-    #pragma omp parallel
-    {
-        // GAUSSIAN FILTERING
-        #pragma omp for
-        for (int i=0; i<rows; i++){
-            int x = i - (rows >> 1);
-            for (int j=0; j<cols; j++){
-                int y = j - (cols >> 1);
-                grid[i*cols + j] *= exp(- (float)(x*x + y*y) * rS);
-            }
-        }
-// TO TIMEEEEEE
-        // IFFT ROWS
-        #pragma omp for
-        for(int i=0; i<rows; i++){
-            for(int j=0; j<cols; j++){
-                gridT[i * cols + revCol[j]] = grid[i*cols + j];
-            }
-            cevLooc(&gridT[i * cols], cols);
-        }
-    }
-    // IFFT COLS
-    transpose(gridT, grid, rows, cols, B);
-
-    #pragma omp parallel
-    {
-        #pragma omp for
-        for(int i=0; i<rows; i++){
-            for(int j=0; j<cols; j++){
-                gridT[i*cols + revRow[j]] = grid[i*cols + j];
-            }
-            cevLooc(&gridT[i * cols], cols);
-        }
-
-        #pragma omp for
-        for (int i=0; i<size; i++){
-            gridT[i] *= rN;
-        }
-    }
-    transpose(gridT, grid, rows, cols, B);
-
-
-    // spectrum then log scale
-    centerSpectrum(grid, rows, cols);  // put complex back lol
-    t2 = steady_clock::now();
-    dt = duration_cast<duration<double>>(t2 - t1);
+//    t2 = steady_clock::now();
+//    dt = duration_cast<duration<double>>(t2 - t1);
 
 //    save.open("logs/OMP/N" + sRows + "Th" + std::getenv("OMP_NUM_THREADS") + "RevFftstatandDynTGaussIfft.txt", std::ios::app);
-    save.open("logs/OMP/pipeline.csv", std::ios::app);
-    save << std::getenv("OMP_NUM_THREADS") << ' '
-		<< sRows << ' '
-        << dt.count() << std::endl;
-    save.close();
+//    save.open("logs/OMP/pipeline.csv", std::ios::app);
+//    save << std::getenv("OMP_NUM_THREADS") << ' '
+//		<< sRows << ' '
+//        << dt.count() << std::endl;
+//    save.close();
 
     if (saveData){
         // REAL CASE, NOT FOR COMPLEX ORIGINAL IMAGE!!!!
