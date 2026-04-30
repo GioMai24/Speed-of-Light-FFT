@@ -1,11 +1,9 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <cuda/cmath>
+#include <cuda/std/cmath>
 #include <cuda/std/complex>
 #include <cuda/std/numbers>
-#include <chrono>
-//#include "utils.h"
 
 /**
  * Threads: (half cols, rows) needed.
@@ -125,7 +123,6 @@ int main(int argc, char **argv){
         std::cout << "Something's off dude..." << std::endl;
         return 1;
     }
-    using namespace std::chrono;
 
 	// files
     const bool saveData = false;
@@ -170,8 +167,8 @@ int main(int argc, char **argv){
     dim3 blocksC(bColsT >> 1, bRowsT);
 
 	cudaMallocHost(&grid, cuSize, cudaHostAllocDefault);
-//    load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
-	load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
+    load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
+//	load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
     std::streamsize nChar = load.tellg();
     load.seekg(0);
     load.read(reinterpret_cast<char *> (grid), nChar);
