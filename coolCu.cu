@@ -223,8 +223,8 @@ int main(int argc, char **argv){
     //    cudaEventRecord(cuT2, stream);
         centerKer<<<blocksC, threadsXBlockT, 0, stream>>>(Dgrid, cols);
         cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
+        cudaStreamSynchronize(stream);
     }
-    cudaStreamSynchronize(stream);
 //    centerSpectrum(grid, rows, cols);  // put complex back lol
     // spectrum then log scale
     if (saveData){
