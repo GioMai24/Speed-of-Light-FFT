@@ -47,9 +47,10 @@ int main(int argc, char **argv){
     std::ofstream save;
 
     // cuda
-    cudaStream_t stream;
+    cudaStream_t stream, stream2;
     cudaStreamCreate(&stream);
-    cufftHandle plan;
+    cudaStreamCreate(&stream2);
+    cufftHandle plan, plan2;
 
 //    cudaEvent_t cuT1, cuT2;
 //    cudaEventCreate(&cuT1);
@@ -64,42 +65,63 @@ int main(int argc, char **argv){
 	const size_t size = rows * cols;
 	const size_t cuSize = size  * sizeof(cufftComplex);
     cufftComplex *grid = nullptr;
+    cufftComplex *grid2 = nullptr;
 	cufftComplex *Dgrid = nullptr;
+	cufftComplex *Dgrid2 = nullptr;
 	cudaMallocAsync(&Dgrid, cuSize, stream);
+	cudaMallocAsync(&Dgrid2, cuSize, stream);
     cufftPlan2d(&plan, rows, cols, CUFFT_C2C);
+    cufftPlan2d(&plan2, rows, cols, CUFFT_C2C);
     cufftSetStream(plan, stream);
+    cufftSetStream(plan2, stream2);
 	const int bColsC = cols >> 6, bRows = rows >> 5;
     dim3 threadsXBlock(32, 32);
     dim3 blocksC(bColsC, bRows);
     dim3 blocksG(bColsC << 1, bRows);
 
 	cudaMallocHost(&grid, cuSize, cudaHostAllocDefault);
-    load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
-//    load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
-	std::streamsize nChar = load.tellg();
-	load.seekg(0);
-	load.read(reinterpret_cast<char *> (grid), nChar);
-	load.close();
+	cudaMallocHost(&grid2, cuSize, cudaHostAllocDefault);
+	for (int counter=0; counter<50; counter++)
+    {
+        load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
+        std::streamsize nChar = load.tellg();
+        load.seekg(0);
+        load.read(reinterpret_cast<char *> (grid), nChar);
+        load.close();
 
+        load.open("data/" + sRows + "Return.bin", std::ios::binary | std::ios::ate);
+        nChar = load.tellg();
+        load.seekg(0);
+        load.read(reinterpret_cast<char *> (grid2), nChar);
+        load.close();
 
-	cudaMemcpyAsync(Dgrid, grid, cuSize, cudaMemcpyHostToDevice, stream);
+        cudaMemcpyAsync(Dgrid, grid, cuSize, cudaMemcpyHostToDevice, stream);
+        cudaMemcpyAsync(Dgrid2, grid2, cuSize, cudaMemcpyHostToDevice, stream2);
 
-    centerKer<<<blocksC, threadsXBlock, 0, stream>>>(Dgrid, cols);
+        centerKer<<<blocksC, threadsXBlock, 0, stream>>>(Dgrid, cols);
+        centerKer<<<blocksC, threadsXBlock, 0, stream2>>>(Dgrid2, cols);
 
-//	cudaEventRecord(cuT1, stream);
-	cufftExecC2C(plan, Dgrid, Dgrid, CUFFT_FORWARD);
-//	cudaEventRecord(cuT2, stream);
+    //	cudaEventRecord(cuT1, stream);
+        cufftExecC2C(plan, Dgrid, Dgrid, CUFFT_FORWARD);
+        cufftExecC2C(plan2, Dgrid2, Dgrid2, CUFFT_FORWARD);
+    //	cudaEventRecord(cuT2, stream);
 
-    gaussKer<<<blocksG, threadsXBlock, 0, stream>>>(Dgrid, cols, rows,  1.f / (2.f * 80.f * 80.f));
+        gaussKer<<<blocksG, threadsXBlock, 0, stream>>>(Dgrid, cols, rows,  1.f / (2.f * 80.f * 80.f));
+        gaussKer<<<blocksG, threadsXBlock, 0, stream2>>>(Dgrid2, cols, rows,  1.f / (2.f * 80.f * 80.f));
 
-    cufftExecC2C(plan, Dgrid, Dgrid, CUFFT_INVERSE);
-    mulKer<<<blocksG, threadsXBlock, 0, stream>>>(Dgrid, cols, 1.f / (float) size);
+        cufftExecC2C(plan, Dgrid, Dgrid, CUFFT_INVERSE);
+        cufftExecC2C(plan2, Dgrid2, Dgrid2, CUFFT_INVERSE);
+        mulKer<<<blocksG, threadsXBlock, 0, stream>>>(Dgrid, cols, 1.f / (float) size);
+        mulKer<<<blocksG, threadsXBlock, 0, stream2>>>(Dgrid2, cols, 1.f / (float) size);
 
-    centerKer<<<blocksC, threadsXBlock, 0, stream>>>(Dgrid, cols);
+        centerKer<<<blocksC, threadsXBlock, 0, stream>>>(Dgrid, cols);
+        centerKer<<<blocksC, threadsXBlock, 0, stream2>>>(Dgrid2, cols);
 
-	cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
-	cudaStreamSynchronize(stream);
-
+        cudaMemcpyAsync(grid, Dgrid, cuSize, cudaMemcpyDeviceToHost, stream);
+        cudaMemcpyAsync(grid2, Dgrid2, cuSize, cudaMemcpyDeviceToHost, stream2);
+        cudaStreamSynchronize(stream);
+        cudaStreamSynchronize(stream2);
+    }
     // spectrum then log scale
     if (saveData){
         float *saveFft = new float[size];
@@ -119,12 +141,17 @@ int main(int argc, char **argv){
 //	std::cout << "Time: " << cuDt << std::endl;
 
 	cudaFreeAsync(grid, stream);
+	cudaFreeAsync(grid2, stream2);
 	cudaFreeAsync(Dgrid, stream);
+	cudaFreeAsync(Dgrid2, stream2);
 //    cudaEventDestroy(cuT1);
 //    cudaEventDestroy(cuT2);
     cufftDestroy(plan);
+    cufftDestroy(plan2);
     cudaStreamSynchronize(stream);
 	cudaStreamDestroy(stream);
+    cudaStreamSynchronize(stream2);
+	cudaStreamDestroy(stream2);
 
     return 0;
 }
