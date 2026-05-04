@@ -63,3 +63,10 @@ For the neat part: on 512x512 data ~0.400s of time is taken for some CPU-GPU ove
 [^god]: God knows why.
 
 [^cuMurder]: if [it does not]; then I am committing a cuMurder; fi.
+
+## 04/05/2026
+I used OMP and CUDA together to parallelize the IFFT batch execution over two CloudVeneto GPUs. I feel the power of the cuGods cuFlowing through my veins, I am now an unstoppable force of computing.
+
+Possibly I could use more orthodox methods like MPI and OpenACC, but It's been almost two months, and I cannot spend more time on this project.
+
+So the coding is pretty much concluded (if I don't once again fall in yet another rabbithole).
