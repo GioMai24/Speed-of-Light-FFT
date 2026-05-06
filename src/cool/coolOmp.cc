@@ -4,11 +4,12 @@
 #include <string>
 #include <cmath>
 #include <complex>
+//#include <chrono>
 
 /** @file
  * @brief CPU parallel DFT implementation.
  *
- * Compute 100 "images". SET OMP_NUM_THREADS.
+ * Compute 100 "images". SET OMP_NUM_THREADS and scheduling?.
  */
 
 
@@ -18,11 +19,14 @@ int main(int argc, char **argv){
         std::cout << "Give me some dimensions!" << std::endl;
         return 1;
     }
+//    using namespace std::chrono;
 
     // FILES
     const bool saveData = false;
     std::ifstream load;
     std::ofstream save;
+//    steady_clock::time_point t1, t2;
+//    duration<double> dtCenter, dtRev, dtFftStat, dtFftDyn, dtT, dtGauss, dtIfft;
 
 	// GRID
 	std::string sRows = argv[1];
@@ -46,7 +50,10 @@ int main(int argc, char **argv){
         load.read(reinterpret_cast<char *> (grid), nChar);
         load.close();
 
+//        t1 = steady_clock::now();
         centerSpectrum(grid, rows, cols);
+//        t2 = steady_clock::now();
+//        dtCenter = duration_cast<duration<double>>(t2 - t1);
 
         #pragma omp parallel
         {
@@ -55,13 +62,14 @@ int main(int argc, char **argv){
             for(int j=0; j<cols; j++){
                 revCol[j] = revBitOrd(j, lCols);
             }
-            #pragma omp for
+            #pragma omp for schedule(dynamic, 1)
             for(int i=0; i<rows; i++){
                 for(int j=0; j<cols; j++){
                     gridT[i * cols + revCol[j]] = grid[i*cols + j];
                 }
                 coolVec(&gridT[i * cols], cols);
             }
+// TO TIMEEEEEEE
             // FFT COLS
             #pragma omp for
             for(int i=0; i<rows; i++){
@@ -72,7 +80,7 @@ int main(int argc, char **argv){
 
         #pragma omp parallel
         {
-            #pragma omp for
+            #pragma omp for schedule(dynamic, 1)
             for(int i=0; i<rows; i++){
                 for(int j=0; j<cols; j++){
                     gridT[i*cols + revRow[j]] = grid[i*cols + j];
@@ -93,7 +101,7 @@ int main(int argc, char **argv){
                 }
             }
             // IFFT ROWS
-            #pragma omp for
+            #pragma omp for schedule(dynamic, 1)
             for(int i=0; i<rows; i++){
                 for(int j=0; j<cols; j++){
                     gridT[i * cols + revCol[j]] = grid[i*cols + j];
@@ -106,7 +114,7 @@ int main(int argc, char **argv){
 
         #pragma omp parallel
         {
-            #pragma omp for
+            #pragma omp for schedule(dynamic, 1)
             for(int i=0; i<rows; i++){
                 for(int j=0; j<cols; j++){
                     gridT[i*cols + revRow[j]] = grid[i*cols + j];
