@@ -5,9 +5,20 @@
 #include <cmath>
 #include <complex>
 
+/** @file
+ * @brief Generate square data to transform.
+ */
+
+
 
 /**
- * The function
+ * @brief Testing cosine function
+ *
+ * @param x x coordinate.
+ * @param y y coordinate.
+ * @param fx x frequency.
+ * @param fy y frequency.
+ * @return CosCos value.
  */
 float CosCos(const float x, const float y, const float fx, const float fy){
 	return cos(2 * std::numbers::pi * fx * x) * cos(2 * std::numbers::pi * fy * y);
@@ -18,7 +29,7 @@ int main(int argc, char **argv){
 	/*
 	 * Change the following parameters.
 	 */
-	std::string N;
+	std::string N;  // side length
 	std::cout << "N? " << std::endl;
 	std::cin >> N;
 	int rows = std::stoi(N);

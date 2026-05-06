@@ -17,6 +17,6 @@ int main(){
 	b2Cols = log2(b2Cols);
 
 	int size = 1 << (b2Rows + b2Cols + b2Doubt + B + MB);
-	std::cout << size << std::endl;
+	std::cout << size << " MB" << std::endl;
 	return 0;
 }
