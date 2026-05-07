@@ -4,7 +4,8 @@
 #include <string>
 #include <cmath>
 #include <complex>
-//#include <chrono>
+#include <cstdlib>
+#include <chrono>
 
 /** @file
  * @brief CPU parallel DFT implementation.
@@ -19,14 +20,14 @@ int main(int argc, char **argv){
         std::cout << "Give me some dimensions!" << std::endl;
         return 1;
     }
-//    using namespace std::chrono;
+    using namespace std::chrono;
 
     // FILES
     const bool saveData = false;
     std::ifstream load;
     std::ofstream save;
-//    steady_clock::time_point t1, t2;
-//    duration<double> dtCenter, dtRev, dtFftStat, dtFftDyn, dtT, dtGauss, dtIfft;
+    steady_clock::time_point t1, t2;
+    duration<double> dtCenter, dtRev, dtFft, dtT, dtGauss, dtIfft;
 
 	// GRID
 	std::string sRows = argv[1];
@@ -41,7 +42,7 @@ int main(int argc, char **argv){
     float rN = 1.f / (float) size;
     float rS = 1.f / (2.f * 80.f * 80.f);
 
-    for (int counter=0; counter<100; counter++)
+    for (int counter=0; counter<1; counter++)
     {
         load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
 //        load.open("data/cats/cut4K2048.bin", std::ios::binary | std::ios::ate);
@@ -50,76 +51,84 @@ int main(int argc, char **argv){
         load.read(reinterpret_cast<char *> (grid), nChar);
         load.close();
 
-//        t1 = steady_clock::now();
+        t1 = steady_clock::now();
         centerSpectrum(grid, rows, cols);
-//        t2 = steady_clock::now();
-//        dtCenter = duration_cast<duration<double>>(t2 - t1);
+        t2 = steady_clock::now();
+        dtCenter = duration_cast<duration<double>>(t2 - t1);
+
+        // FFT ROWS
+        t1 = steady_clock::now();
+        #pragma omp parallel for
+        for(int j=0; j<cols; j++){
+            revCol[j] = revBitOrd(j, lCols);
+        }
+        t2 = steady_clock::now();
+        dtRev = duration_cast<duration<double>>(t2 - t1);
 
         #pragma omp parallel
         {
-            // FFT ROWS
             #pragma omp for
-            for(int j=0; j<cols; j++){
-                revCol[j] = revBitOrd(j, lCols);
-            }
-            #pragma omp for schedule(dynamic, 1)
             for(int i=0; i<rows; i++){
                 for(int j=0; j<cols; j++){
                     gridT[i * cols + revCol[j]] = grid[i*cols + j];
                 }
                 coolVec(&gridT[i * cols], cols);
             }
-// TO TIMEEEEEEE
             // FFT COLS
             #pragma omp for
             for(int i=0; i<rows; i++){
                 revRow[i] = revBitOrd(i, lRows);
             }
         }
+        t1 = steady_clock::now();
         transpose(gridT, grid, rows, cols, B);
+        t2 = steady_clock::now();
+        dtT = duration_cast<duration<double>>(t2 - t1);
 
-        #pragma omp parallel
-        {
-            #pragma omp for schedule(dynamic, 1)
-            for(int i=0; i<rows; i++){
-                for(int j=0; j<cols; j++){
-                    gridT[i*cols + revRow[j]] = grid[i*cols + j];
-                }
-                coolVec(&gridT[i * cols], cols);
+        t1 = steady_clock::now();
+        #pragma omp parallel for
+        for(int i=0; i<cols; i++){
+            for(int j=0; j<rows; j++){
+                gridT[i*rows + revRow[j]] = grid[i*rows + j];
+            }
+            coolVec(&gridT[i * rows], rows);
+        }
+        t2 = steady_clock::now();
+        dtFft = duration_cast<duration<double>>(t2 - t1);
+
+        transpose(gridT, grid, cols, rows, B);
+        // GAUSSIAN FILTERING
+        t1 = steady_clock::now();
+        #pragma omp parallel for
+        for (int i=0; i<rows; i++){
+            int x = i - (rows >> 1);
+            for (int j=0; j<cols; j++){
+                int y = j - (cols >> 1);
+                grid[i*cols + j] *= exp(- (float)(x*x + y*y) * rS);
             }
         }
-        transpose(gridT, grid, cols, rows, B);
-        #pragma omp parallel
-        {
-            // GAUSSIAN FILTERING
-            #pragma omp for
-            for (int i=0; i<rows; i++){
-                int x = i - (rows >> 1);
-                for (int j=0; j<cols; j++){
-                    int y = j - (cols >> 1);
-                    grid[i*cols + j] *= exp(- (float)(x*x + y*y) * rS);
-                }
+        t2 = steady_clock::now();
+        dtGauss = duration_cast<duration<double>>(t2 - t1);
+        // IFFT ROWS
+        #pragma omp parallel for
+        for(int i=0; i<rows; i++){
+            for(int j=0; j<cols; j++){
+                gridT[i * cols + revCol[j]] = grid[i*cols + j];
             }
-            // IFFT ROWS
-            #pragma omp for schedule(dynamic, 1)
-            for(int i=0; i<rows; i++){
-                for(int j=0; j<cols; j++){
-                    gridT[i * cols + revCol[j]] = grid[i*cols + j];
-                }
-                cevLooc(&gridT[i * cols], cols);
-            }
+            cevLooc(&gridT[i * cols], cols);
         }
         // IFFT COLS
         transpose(gridT, grid, rows, cols, B);
 
+        t1 = steady_clock::now();
         #pragma omp parallel
         {
-            #pragma omp for schedule(dynamic, 1)
-            for(int i=0; i<rows; i++){
-                for(int j=0; j<cols; j++){
-                    gridT[i*cols + revRow[j]] = grid[i*cols + j];
+            #pragma omp for
+            for(int i=0; i<cols; i++){
+                for(int j=0; j<rows; j++){
+                    gridT[i*rows + revRow[j]] = grid[i*rows + j];
                 }
-                cevLooc(&gridT[i * cols], cols);
+                cevLooc(&gridT[i * rows], rows);
             }
 
             #pragma omp for
@@ -127,10 +136,23 @@ int main(int argc, char **argv){
                 gridT[i] *= rN;
             }
         }
-        transpose(gridT, grid, rows, cols, B);
+        t2 = steady_clock::now();
+        dtIfft = duration_cast<duration<double>>(t2 - t1);
+        transpose(gridT, grid, cols, rows, B);
 
         centerSpectrum(grid, rows, cols);
     }
+
+        save.open("logs/singleImage/OMP/centerRevFftTGaussIfftStatic.csv", std::ios::app);
+        save << std::getenv("OMP_NUM_THREADS") << ' '
+            << sRows << ' '
+            << dtCenter.count() << ' '
+            << dtRev.count() << ' '
+            << dtFft.count() << ' '
+            << dtT.count() << ' '
+            << dtGauss.count() << ' '
+            << dtIfft.count() << std::endl;
+        save.close();
 
     if (saveData){
         // REAL CASE, NOT FOR COMPLEX ORIGINAL IMAGE!!!!

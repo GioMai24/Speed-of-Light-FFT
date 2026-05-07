@@ -125,7 +125,7 @@ void transpose(T *src, const int rows, const int cols) {
  */
 template<typename T>
 void transpose(T *src, T *dst, const int rows, const int cols, const int B) {
-    #pragma omp parallel for schedule(dynamic, 1)
+    #pragma omp parallel for
     for(int ii=0; ii<rows; ii+=B){
         for(int jj=0; jj<cols; jj+=B){
             for(int i=ii; i<ii+B; i++){

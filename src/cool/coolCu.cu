@@ -60,7 +60,7 @@ int main(int argc, char **argv){
 
 	cudaMallocHost(&grid, cuSize, cudaHostAllocDefault);
 //	cudaMallocHost(&grid2, cuSize, cudaHostAllocDefault);
-    for (int counter=0; counter<100; counter++)
+    for (int counter=0; counter<1; counter++)
     {
         load.open("data/" + sRows + ".bin", std::ios::binary | std::ios::ate);
         std::streamsize nChar = load.tellg();
