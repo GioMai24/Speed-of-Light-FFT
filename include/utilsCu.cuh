@@ -41,12 +41,14 @@ __global__ void revBitOrdKer(cuda::std::complex<float> *in, cuda::std::complex<f
  * @brief Perform rowwise Reverse Bit Ordering of an array with shared memory (deprecated).
  *
  * A single block would need a whole row in the shared memory. This both requires too much memory and multiple accesses from a single thread if cols>1024.
+ * Requires cols * sizeof(cuda::std::complex<float>) shared memory allocation.
  *
  * @param[in] in input array.
  * @param[out] out output array.
  * @param[in] cols columns of the array.
+ * @param[in] iters number of entries a thread loads in shared memory (cols / threads).
  */
-__global__ void revBitShOrdKer(cuda::std::complex<float> *in, cuda::std::complex<float> *out, const int cols);
+__global__ void revBitShOrdKer(cuda::std::complex<float> *in, cuda::std::complex<float> *out, const int cols, const int iters);
 
 
 /**
