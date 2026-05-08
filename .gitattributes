@@ -1,0 +1,2 @@
+# exclude jupyter
+*.ipynb linguist-vendored
