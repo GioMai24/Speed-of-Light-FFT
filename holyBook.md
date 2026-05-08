@@ -70,3 +70,7 @@ I used OMP and CUDA together to parallelize the IFFT batch execution over two Cl
 Possibly I could use more orthodox methods like MPI and OpenACC, but It's been almost two months, and I cannot spend more time on this project.
 
 So the coding is pretty much concluded (if I don't once again fall in yet another rabbithole).
+
+## 08/05/2026
+
+Cleanliness, unorthodox branching, visualization.
