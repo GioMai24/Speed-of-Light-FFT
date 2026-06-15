@@ -36,5 +36,5 @@ The heart of the repo resides in the `src/cool` and `src/utils` directories. The
 │       ├── utils.cc              # serial
 │       ├── utilsCu.cu            # CUDA
 │       └── utilsMP.cc            # OpenMP
-└── visualization.ipynb
+└── visualization.ipynb    # results
 ```
