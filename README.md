@@ -29,8 +29,6 @@ The heart of the repo resides in the `src/cool` and `src/utils` directories. The
 │   │   └── coolOmp.cc            # OpenMP
 │   ├── tools
 │   │   ├── genData.cc
-│   │   ├── singleOpBench.cc
-│   │   ├── sizeCalc.cc
 │   │   └── specs.cu
 │   └── utils
 │       ├── utils.cc              # serial
