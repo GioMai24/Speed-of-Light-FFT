@@ -33,24 +33,18 @@ int main(int argc, char **argv){
 	std::cout << "N? " << std::endl;
 	std::cin >> N;
 	int rows = std::stoi(N);
-	int cols=rows;
-	float fx=0.3, fy=0.8, xMax=rows/2, yMax=rows/2;
+	int cols = rows;
+	float fx = 0.15, fy = 0.4;
 	std::string name="data/" + N + ".bin";
 
 	std::ofstream save;
-	float xTemp, yTemp=0;
 	const size_t size = rows * cols;
-	float xStep = xMax / (float) cols;
-	float yStep = yMax / (float) rows;
 	std::complex<float> *arr = new std::complex<float>[size];
 
 	for(int i=0; i<rows; i++){
-		xTemp = 0;
 		for(int j=0; j<cols; j++){
-			arr[i * cols + j] = CosCos(xTemp, yTemp, fx, fy);
-			xTemp += xStep;
+			arr[i * cols + j] = CosCos(j, i, fx, fy);
 		}
-		yTemp += yStep;
 	}
 
 	save.open(name, std::ios::binary);
