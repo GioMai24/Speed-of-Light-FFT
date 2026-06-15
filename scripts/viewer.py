@@ -1,13 +1,16 @@
 #!/usr/bin/env python
+"""Display images utility."""
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
 
 
 def displayImage(image, dtype="float32"):
-    '''
+    """
+    Little helper to display bin files.
+
     dtype could be "float32", "complex64", "uint8"
-    '''
+    """
     arr = np.fromfile(image, dtype=dtype)
     arr = arr.reshape(-1, np.sqrt(len(arr)).astype(int)).real
     fig, ax = plt.subplots(figsize=(5,5), layout="constrained")

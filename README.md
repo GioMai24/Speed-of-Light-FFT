@@ -1,4 +1,4 @@
-<h1 align=center> Speed of Light FFT </h1>
+<h1 align=center> Fast as Light Fourier Transform </h1>
 
 Radix-2 Cooley-Tukey DFT implementation and benchmark of serial, parallel, and GPU parallel code using OpenMP and CUDA.
 
@@ -18,10 +18,7 @@ The heart of the repo resides in the `src/cool` and `src/utils` directories. The
 │   └── utilsMP.h                 # OpenMP
 ├── scripts
 │   ├── benchmark.sh
-│   ├── catter.py
 │   ├── checker.py
-│   ├── means.py
-│   ├── saver.py
 │   └── viewer.py
 ├── src
 │   ├── cool
