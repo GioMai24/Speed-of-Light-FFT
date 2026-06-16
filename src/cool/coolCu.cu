@@ -9,7 +9,7 @@
 /** @file
  * @brief Bare CUDA DFT implementation.
  *
- * Compute x "images". Change counter var in image loop according to number of streams...
+ * Process "counter" images. Change counter var in image loop according to number of streams...
  */
 
 
@@ -144,7 +144,7 @@ int main(int argc, char **argv){
         for(int i=0; i<size; i++){
 //            saveFft[i] = log(1.f + hypotf(grid[i].real(), grid[i].imag()));
 //            saveFft[i] = hypotf(grid[i].real(), grid[i].imag());
-            saveFft[i] = grid[i].real();  // real part use this I guess
+            saveFft[i] = grid[i].real();
         }
 
         // COMPLEX CASE

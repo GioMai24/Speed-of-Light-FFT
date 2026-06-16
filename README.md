@@ -1,6 +1,6 @@
 <h1 align=center> Fast as Light Fourier Transform </h1>
 
-Radix-2 Cooley-Tukey DFT implementation and benchmark of serial, parallel, and GPU parallel code using OpenMP and CUDA.
+Radix-2 Cooley-Tukey DFT implementation and benchmark of serial, parallel, and GPU parallel code using OpenMP and CUDA. Gaussian blurring in the frequency domain, and IDFT is also performed.
 
 ## Disclaimer
 
@@ -8,7 +8,11 @@ Being my first cpp project I possibly lack basic and well known best practices. 
 
 <h2 align=center> Project structure </h2>
 
-The heart of the repo resides in the `src/cool` and `src/utils` directories. The former contains the serial, parallel and cuParallel implementations of the DFT. The latter defines the functions used in the implementations. Several functions use templates, and are declared and defined directly in `include/` header files.
+The core of the repo resides in the `src/cool` and `src/utils` directories. The former contains the serial, parallel and cuParallel implementations of the DFT. The latter defines the functions used in the implementations. Several functions use templates, and are declared and defined directly in the `include/` header files.
+
+`src/tools` contains the code used to generate the cosine grid data requested by the assignment.
+
+Finally, `scripts` contains some code to make a quick check on the results, and the bash script run for the benchmarking.
 
 ```
 .

@@ -10,7 +10,7 @@
 /** @file
  * @brief Double GPU CUDA implementation.
  *
- * Compute "100 images" in parallel on two GPUs. Easily extendible to more GPUs by tinkering some parameters.
+ * Process "counter" on two GPUs in parallel. Easily extendible to more GPUs by tinkering some parameters.
  */
 
 
@@ -137,7 +137,6 @@ int main(int argc, char **argv){
 			float *saveFft = new float[size];
 			for(int i=0; i<size; i++){
 //	            saveFft[i] = log(1.f + hypotf(grid[i].real(), grid[i].imag()));
-//	            saveFft[i] = hypotf(grid[i].real(), grid[i].imag());
 				saveFft[i] = grid[someName][i].real();
 			}
 

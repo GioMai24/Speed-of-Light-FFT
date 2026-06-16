@@ -9,7 +9,7 @@
 /** @file
  * @brief Serial DFT implementation.
  *
- * Compute x "images". Change counter in loop to wanted x.
+ * Process "counter" images. Change counter in loop to wanted number.
  */
 
 
@@ -36,7 +36,7 @@ int main(int argc, char **argv){
 	std::complex<float> *grid = new std::complex<float>[size];
 	std::complex<float> *gridT = new std::complex<float>[size];
     const int B = 8;
-//    const int B = atoi(argv[1]);
+//    const int B = atoi(argv[2]);
     const int lCols = log2(cols), lRows = log2(rows);
     int revCol[cols], revRow[rows];
     const float rN = 1.f / (float) size;

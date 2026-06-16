@@ -7,7 +7,7 @@
 /** @file
  * @brief CUFFT library implementation.
  *
- * Compute 100 "images". Change counter var in image loop according to number of streams...
+ * Process "counter" images. Change counter var in image loop according to number of streams...
  * Differently from the standard CUDA implementation, all the needed functions are defined here. This is due to the usage of cufftComplex specific type.
  */
 

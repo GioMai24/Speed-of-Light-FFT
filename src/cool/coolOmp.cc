@@ -10,7 +10,7 @@
 /** @file
  * @brief CPU parallel DFT implementation.
  *
- * Compute 100 "images". SET OMP_NUM_THREADS and scheduling?.
+ * Process "counter" images. SET OMP_NUM_THREADS and OMP_SCHEDULE.
  */
 
 
@@ -159,8 +159,7 @@ int main(int argc, char **argv){
         float *saveFft = new float[size];
         for(int i=0; i<size; i++){
 //            saveFft[i] = log(1.f + hypotf(grid[i].real(), grid[i].imag()));
-//            saveFft[i] = hypotf(grid[i].real(), grid[i].imag());
-            saveFft[i] = grid[i].real();  // real part use this I guess
+            saveFft[i] = grid[i].real();
         }
 
         // COMPLEX CASE
