@@ -12,7 +12,7 @@ The core of the repo resides in the `src/cool` and `src/utils` directories. The 
 
 `src/tools` contains the code used to generate the cosine grid data requested by the assignment.
 
-Finally, `scripts` contains some code to make a quick check on the results, and the bash script run for the benchmarking.
+Finally, `scripts` contains some code to make a quick check on the results, along with the bash script run for the benchmarking.
 
 ```
 .
