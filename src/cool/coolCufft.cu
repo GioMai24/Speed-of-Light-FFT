@@ -94,7 +94,7 @@ int main(int argc, char **argv){
 	cufftComplex *Dgrid = nullptr;
 	cufftComplex *Dgrid2 = nullptr;
 	cudaMallocAsync(&Dgrid, cuSize, stream);
-	cudaMallocAsync(&Dgrid2, cuSize, stream);
+	cudaMallocAsync(&Dgrid2, cuSize, stream2);
 
     cufftPlan2d(&plan, rows, cols, CUFFT_C2C);
     cufftPlan2d(&plan2, rows, cols, CUFFT_C2C);
